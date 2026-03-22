@@ -2921,6 +2921,28 @@ function showToast(msg) {
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2800);
 }
+
+// ════════════════════════════════════════════════════════════
+//  EXPOSE FUNCTIONS TO GLOBAL SCOPE (required for type=module)
+// ════════════════════════════════════════════════════════════
+Object.assign(window, {
+  switchView, switchDashTab, switchReminderTab,
+  openCustomer, closeModal, saveCustomerFields,
+  updateHeat, updateGrade, updateExhibition, updateReminder,
+  addManualNote, deleteCurrentCustomer,
+  addInteractionRecord, renderModalTimeline, switchModalTab,
+  saveBulkTimeline, addSampleRecord, updateSampleStatus, deleteSample,
+  openNewOrderModal, openEditOrderModal, closeOrderModal,
+  saveOrderForm, deleteOrder, toggleOrderBody,
+  openAddPaymentModal, savePayment,
+  onOrderCustomerChange, onPaymentTypeChange, syncPaymentAmounts,
+  parseReport, saveParsedCustomers,
+  saveApiKey, testApiKey, addEmployee, removeEmployee,
+  exportData, importData, handleImport, clearAllData,
+  generateWeeklyReport, downloadWeeklyReport, updateWeeklyPreviewStats,
+  renderExhibition, dismissBanner,
+  togglePriority,
+});
 </script>
 </body>
 </html>
