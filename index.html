@@ -512,7 +512,7 @@ table.data-table tr:hover td { background: #FAFAFA; }
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#E8431C;margin-right:7px;vertical-align:-2px"></span>Remica CRM
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="vertical-align:-4px;margin-right:7px" xmlns="http://www.w3.org/2000/svg"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" stroke="#E8431C" stroke-width="2" stroke-linejoin="round"/><path d="M9 21V12h6v9" stroke="#E8431C" stroke-width="2" stroke-linejoin="round"/></svg>Remica CRM
     </div>
     <div class="login-sub">客户管理系统 · 团队版</div>
     <button class="login-btn" onclick="signInWithGoogle()">
@@ -527,7 +527,7 @@ table.data-table tr:hover td { background: #FAFAFA; }
 <div id="sidebar">
   <div class="sidebar-logo">
     <div class="logo-title">
-      <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#E8431C;margin-right:6px;vertical-align:-1px"></span>客户管理系统
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:6px" xmlns="http://www.w3.org/2000/svg"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" stroke="#E8431C" stroke-width="2" stroke-linejoin="round"/><path d="M9 21V12h6v9" stroke="#E8431C" stroke-width="2" stroke-linejoin="round"/></svg>客户管理系统
     </div>
     <div class="logo-sub">Remica · 管理员版</div>
   </div>
@@ -656,6 +656,11 @@ table.data-table tr:hover td { background: #FAFAFA; }
 
     <!-- ══ REMINDERS ══ -->
     <div id="view-reminders" class="view">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+        <select class="meta-select" id="reminder-filter-employee" onchange="renderReminders()">
+          <option value="">全部业务员</option>
+        </select>
+      </div>
       <div class="tab-row">
         <button class="tab-btn active" onclick="switchReminderTab('overdue',this)">逾期 <span id="cnt-overdue" style="font-size:11px"></span></button>
         <button class="tab-btn" onclick="switchReminderTab('today',this)">今日 <span id="cnt-today" style="font-size:11px"></span></button>
@@ -1985,11 +1990,11 @@ function renderCustomerFilters() {
   const empFromData = [...new Set(db.customers.map(c=>c.employee).filter(Boolean))];
   const allEmps = [...new Set([...settings.employees, ...empFromData])].sort();
 
-  ['filter-employee','parse-employee','closed-filter-employee','filter-order-employee'].forEach(id => {
+  ['filter-employee','parse-employee','closed-filter-employee','filter-order-employee','reminder-filter-employee'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     const cur = sel.value;
-    const isFilter = id.startsWith('filter') || id.startsWith('closed');
+    const isFilter = id.startsWith('filter') || id.startsWith('closed') || id.startsWith('reminder');
     sel.innerHTML = isFilter ? '<option value="">全部业务员</option>' : '<option value="">-- 选择业务员 --</option>';
     allEmps.forEach(e => sel.innerHTML += `<option value="${e}">${e}</option>`);
     sel.value = cur;
@@ -2082,14 +2087,17 @@ function renderReminders() {
   const t = today();
   const monthStart = t.substring(0,7) + '-01';
   const weekStr = (() => { const d = new Date(); d.setDate(d.getDate()+7); return d.toISOString().split('T')[0]; })();
-  const all     = db.customers.filter(c => c.reminder_date);
+  const empFilter = document.getElementById('reminder-filter-employee')?.value || '';
+
+  const allCustomers = empFilter ? db.customers.filter(c => c.employee === empFilter) : db.customers;
+  const all     = allCustomers.filter(c => c.reminder_date);
   const overdue = all.filter(c => c.reminder_date<t).sort((a,b)=>a.reminder_date.localeCompare(b.reminder_date));
   const todayL  = all.filter(c => c.reminder_date===t);
   const weekL   = all.filter(c => c.reminder_date>t && c.reminder_date<=weekStr).sort((a,b)=>a.reminder_date.localeCompare(b.reminder_date));
 
   // Month active: customers with any interaction this month
   const heatOrder = {hot:0,warm:1,cool:2,cold:3,closed:4};
-  const monthActive = db.customers.filter(c =>
+  const monthActive = allCustomers.filter(c =>
     (c.interactions||[]).some(ia => ia.date >= monthStart && ia.date <= t)
   ).sort((a,b) => (heatOrder[a.heat_level]||2) - (heatOrder[b.heat_level]||2));
 
