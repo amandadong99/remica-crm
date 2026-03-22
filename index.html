@@ -499,10 +499,7 @@ table.data-table tr:hover td { background: #FAFAFA; }
 <!-- ══════════════════ LOADING SCREEN ══════════════════ -->
 <div id="loading-screen">
   <div class="loading-logo">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="vertical-align:-3px;margin-right:6px" xmlns="http://www.w3.org/2000/svg">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="#E8431C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="#E8431C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>Remica CRM
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="vertical-align:-3px;margin-right:6px" xmlns="http://www.w3.org/2000/svg"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" stroke="#E8431C" stroke-width="2" stroke-linejoin="round"/><path d="M9 21V12h6v9" stroke="#E8431C" stroke-width="2" stroke-linejoin="round"/></svg>Remica CRM
   </div>
   <div class="spinner" style="width:20px;height:20px;border-width:3px"></div>
   <div class="loading-sub">正在连接...</div>
@@ -674,7 +671,7 @@ table.data-table tr:hover td { background: #FAFAFA; }
     <!-- ══ CUSTOMERS ══ -->
     <div id="view-customers" class="view">
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
-        <input type="text" class="search-input" id="customer-search" placeholder="🔍 搜索客户名/国家..." oninput="renderCustomers()">
+        <input type="text" class="search-input" id="customer-search" placeholder="🔍 搜索客户名/国家/联系人..." oninput="renderCustomers()">
         <select class="meta-select" id="filter-heat" onchange="renderCustomers()">
           <option value="">全部热度</option>
           <option value="hot">🔥 热 (Hot)</option>
@@ -2011,7 +2008,7 @@ function renderCustomers() {
     if (heat && c.heat_level!==heat) return false;
     if (emp  && c.employee!==emp)    return false;
     if (grade && c.grade!==grade)    return false;
-    if (q) { const hay = `${c.name} ${c.country} ${c.type} ${c.employee} ${c.grade||''}`.toLowerCase(); if (!hay.includes(q)) return false; }
+    if (q) { const hay = `${c.name} ${c.country} ${c.type} ${c.employee} ${c.grade||''} ${c.contact||''}`.toLowerCase(); if (!hay.includes(q)) return false; }
     return true;
   }).sort((a,b) => {
     const aCount = (a.interactions||[]).length;
@@ -2078,7 +2075,7 @@ function updateReminderBadge() {
 
 function switchReminderTab(tab, el) {
   reminderTab = tab;
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#view-reminders .tab-btn').forEach(b => b.classList.remove('active'));
   if (el) el.classList.add('active');
   renderReminders();
 }
@@ -2096,10 +2093,14 @@ function renderReminders() {
   const weekL   = all.filter(c => c.reminder_date>t && c.reminder_date<=weekStr).sort((a,b)=>a.reminder_date.localeCompare(b.reminder_date));
 
   // Month active: customers with any interaction this month
-  const heatOrder = {hot:0,warm:1,cool:2,cold:3,closed:4};
+  const heatOrder = {hot:0, warm:1, cool:2, cold:3, closed:4};
   const monthActive = allCustomers.filter(c =>
     (c.interactions||[]).some(ia => ia.date >= monthStart && ia.date <= t)
-  ).sort((a,b) => (heatOrder[a.heat_level]||2) - (heatOrder[b.heat_level]||2));
+  ).sort((a,b) => {
+    const ao = heatOrder[a.heat_level] ?? 5;
+    const bo = heatOrder[b.heat_level] ?? 5;
+    return ao - bo;
+  });
 
   document.getElementById('cnt-overdue').textContent      = overdue.length     ? `(${overdue.length})` : '';
   document.getElementById('cnt-today').textContent        = todayL.length      ? `(${todayL.length})` : '';
@@ -2195,7 +2196,15 @@ function renderOrders() {
     if (emp) { const c = db.customers.find(x=>x.id===o.customer_id); if (!c||c.employee!==emp) return false; }
     if (q) { const c = db.customers.find(x=>x.id===o.customer_id); const hay = `${o.order_no||''} ${c?.name||''} ${o.product_desc||''}`.toLowerCase(); if (!hay.includes(q)) return false; }
     return true;
-  }).sort((a,b) => (b.order_date||'').localeCompare(a.order_date||''));
+  }).sort((a,b) => {
+    // Sort by ship_eta ascending (soonest first); orders without ship_eta go to the end
+    const aDate = a.ship_eta || a.ship_actual || '';
+    const bDate = b.ship_eta || b.ship_actual || '';
+    if (!aDate && !bDate) return (b.order_date||'').localeCompare(a.order_date||'');
+    if (!aDate) return 1;
+    if (!bDate) return -1;
+    return aDate.localeCompare(bDate);
+  });
 
   document.getElementById('order-count').textContent = `共 ${list.length} 笔订单`;
   const container = document.getElementById('orders-container');
@@ -2289,8 +2298,8 @@ function buildOrderCard(o) {
         <div class="order-field"><label>实际发货日期</label><div class="ofval">${formatDate(o.ship_actual)}</div></div>
         <div class="order-field"><label>货物到港日期</label><div class="ofval">${formatDate(o.arrival_date)}</div></div>
         <div class="order-field"><label>港口/目的地</label><div class="ofval">${o.destination||'—'}</div></div>
-        <div class="order-field"><label>备注</label><div class="ofval">${o.notes||'—'}</div></div>
       </div>
+      ${o.notes ? `<div style="margin-top:8px;padding:10px 12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--mid);line-height:1.7;white-space:pre-wrap;word-break:break-word"><span style="font-size:11px;color:var(--light);display:block;margin-bottom:4px">备注</span>${o.notes}</div>` : ''}
       ${buildPaymentSection(o)}
       <div style="display:flex;gap:8px;margin-top:12px">
         <button class="btn btn-secondary btn-sm" onclick="openEditOrderModal('${o.id}')">✏️ 编辑订单</button>
@@ -2381,16 +2390,30 @@ function renderOrderForm(o, preCustomerId) {
   ).join('');
   const stageOptions = STAGES.map(s => `<option value="${s.key}" ${o?.stage===s.key?'selected':''}>${s.icon} ${s.label}</option>`).join('');
 
-  // Payment terms type
   const pt = o?.payment_terms_type || 'tt';
-  const ptTT    = pt==='tt'    ? 'selected' : '';
+  const ptTT    = pt==='tt'       ? 'selected' : '';
   const ptLC    = pt==='lc_sight' ? 'selected' : '';
   const ptLCT   = pt==='lc_term'  ? 'selected' : '';
   const ptCustom= pt==='custom'   ? 'selected' : '';
 
-  // Auto-fill contact from linked customer
+  const priceTerm = o?.price_terms || 'FOB';
   const linkedCust = preCustomerId ? db.customers.find(c=>c.id===preCustomerId) : (o?.customer_id ? db.customers.find(c=>c.id===o.customer_id) : null);
   const defaultContact = o?.order_contact || linkedCust?.contact || '';
+
+  // Build order items rows
+  const items = (o?.order_items && o.order_items.length) ? o.order_items : [{ name:'', size:'', model:'', surface:'', grade:'', unit_price:'', qty:'', subtotal:'' }];
+  const itemRows = items.map((it, i) => `
+    <tr>
+      <td><input class="meta-input" style="width:100%;font-size:12px;padding:4px 6px" placeholder="品名" value="${it.name||''}" oninput="calcItemRow(${i})" id="oi-name-${i}"></td>
+      <td><input class="meta-input" style="width:100%;font-size:12px;padding:4px 6px" placeholder="如1220×2440" value="${it.size||''}" id="oi-size-${i}"></td>
+      <td><input class="meta-input" style="width:100%;font-size:12px;padding:4px 6px" placeholder="型号/款式" value="${it.model||''}" id="oi-model-${i}"></td>
+      <td><input class="meta-input" style="width:100%;font-size:12px;padding:4px 6px" placeholder="表面要求" value="${it.surface||''}" id="oi-surface-${i}"></td>
+      <td><input class="meta-input" style="width:100%;font-size:12px;padding:4px 6px" placeholder="品质" value="${it.grade||''}" id="oi-grade-${i}"></td>
+      <td><input class="meta-input" style="width:80px;font-size:12px;padding:4px 6px" type="number" placeholder="单价" value="${it.unit_price||''}" oninput="calcItemRow(${i})" id="oi-price-${i}"></td>
+      <td><input class="meta-input" style="width:70px;font-size:12px;padding:4px 6px" type="number" placeholder="数量" value="${it.qty||''}" oninput="calcItemRow(${i})" id="oi-qty-${i}"></td>
+      <td><input class="meta-input" style="width:90px;font-size:12px;padding:4px 6px;background:#FAFAFA" readonly placeholder="小计" value="${it.subtotal||''}" id="oi-sub-${i}"></td>
+      <td><button style="background:none;border:none;cursor:pointer;color:var(--light);font-size:14px;padding:2px 4px" onclick="removeOrderItem(${i})" title="删除">🗑️</button></td>
+    </tr>`).join('');
 
   document.getElementById('order-modal-body').innerHTML = `
     <div class="field-grid-3" style="gap:10px 16px">
@@ -2404,8 +2427,45 @@ function renderOrderForm(o, preCustomerId) {
       </div>
       <div class="field-item"><label>订单编号</label><input class="meta-input" id="of-order-no" value="${o?.order_no||''}" style="width:100%" placeholder="如 PO-2025-001"></div>
       <div class="field-item"><label>当前阶段</label><select class="meta-select" id="of-stage" style="width:100%">${stageOptions}</select></div>
-      <div class="field-item"><label>产品描述</label><input class="meta-input" id="of-product-desc" value="${o?.product_desc||''}" style="width:100%" placeholder="如：HPL 672张 防火板"></div>
-      <div class="field-item"><label>订单总金额 ($)</label><input class="meta-input" id="of-total-amount" type="number" value="${o?.total_amount||''}" style="width:100%" oninput="syncPaymentAmounts()"></div>
+      <div class="field-item"><label>价格条款</label>
+        <select class="meta-select" id="of-price-terms" style="width:100%">
+          <option value="EXW" ${priceTerm==='EXW'?'selected':''}>EXW</option>
+          <option value="FOB" ${priceTerm==='FOB'?'selected':''}>FOB</option>
+          <option value="CIF" ${priceTerm==='CIF'?'selected':''}>CIF</option>
+          <option value="CFR" ${priceTerm==='CFR'?'selected':''}>CFR</option>
+          <option value="DAP" ${priceTerm==='DAP'?'selected':''}>DAP</option>
+        </select>
+      </div>
+      <div class="field-item"><label>订单总金额 ($)</label><input class="meta-input" id="of-total-amount" type="number" value="${o?.total_amount||''}" style="width:100%;background:#FAFAFA" readonly placeholder="自动计算"></div>
+    </div>
+
+    <!-- Order Items -->
+    <div style="margin:12px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:bold;color:var(--dark)">📋 订单明细</div>
+        <button class="btn btn-secondary btn-sm" onclick="addOrderItem()">＋ 添加行</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px" id="order-items-table">
+          <thead>
+            <tr style="background:var(--bg)">
+              <th style="padding:6px 8px;text-align:left;color:var(--light);font-weight:600;min-width:100px">品名</th>
+              <th style="padding:6px 8px;text-align:left;color:var(--light);font-weight:600;min-width:110px">尺寸</th>
+              <th style="padding:6px 8px;text-align:left;color:var(--light);font-weight:600;min-width:100px">型号/款式</th>
+              <th style="padding:6px 8px;text-align:left;color:var(--light);font-weight:600;min-width:100px">表面要求</th>
+              <th style="padding:6px 8px;text-align:left;color:var(--light);font-weight:600;min-width:80px">品质等级</th>
+              <th style="padding:6px 8px;text-align:left;color:var(--light);font-weight:600;min-width:80px">单价($)</th>
+              <th style="padding:6px 8px;text-align:left;color:var(--light);font-weight:600;min-width:70px">数量</th>
+              <th style="padding:6px 8px;text-align:left;color:var(--light);font-weight:600;min-width:90px">小计($)</th>
+              <th style="padding:6px 4px;width:28px"></th>
+            </tr>
+          </thead>
+          <tbody id="order-items-tbody">${itemRows}</tbody>
+        </table>
+      </div>
+      <div style="text-align:right;margin-top:8px;font-size:13px;font-weight:bold;color:var(--orange)">
+        合计：$<span id="of-items-total">0</span>
+      </div>
     </div>
 
     <!-- Payment Terms -->
@@ -2469,8 +2529,77 @@ function renderOrderForm(o, preCustomerId) {
     <button class="btn btn-secondary btn-sm" onclick="closeOrderModal()">取消</button>
     <button class="btn btn-primary btn-sm" onclick="saveOrderForm()">💾 保存订单</button>
   `;
-  // Init calculated amounts
+  recalcOrderTotal();
   syncPaymentAmounts();
+}
+
+function calcItemRow(i) {
+  const price = parseFloat(document.getElementById(`oi-price-${i}`)?.value) || 0;
+  const qty   = parseFloat(document.getElementById(`oi-qty-${i}`)?.value)   || 0;
+  const sub   = price * qty;
+  const subEl = document.getElementById(`oi-sub-${i}`);
+  if (subEl) subEl.value = sub > 0 ? sub.toFixed(2) : '';
+  recalcOrderTotal();
+}
+
+function recalcOrderTotal() {
+  let total = 0;
+  const tbody = document.getElementById('order-items-tbody');
+  if (!tbody) return;
+  const rows = tbody.querySelectorAll('tr');
+  rows.forEach((_, i) => {
+    const sub = parseFloat(document.getElementById(`oi-sub-${i}`)?.value) || 0;
+    total += sub;
+  });
+  const totalEl = document.getElementById('of-items-total');
+  if (totalEl) totalEl.textContent = total.toFixed(2);
+  const totalInput = document.getElementById('of-total-amount');
+  if (totalInput && total > 0) { totalInput.value = total.toFixed(2); syncPaymentAmounts(); }
+}
+
+function addOrderItem() {
+  const tbody = document.getElementById('order-items-tbody');
+  if (!tbody) return;
+  const i = tbody.querySelectorAll('tr').length;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="meta-input" style="width:100%;font-size:12px;padding:4px 6px" placeholder="品名" id="oi-name-${i}"></td>
+    <td><input class="meta-input" style="width:100%;font-size:12px;padding:4px 6px" placeholder="如1220×2440" id="oi-size-${i}"></td>
+    <td><input class="meta-input" style="width:100%;font-size:12px;padding:4px 6px" placeholder="型号/款式" id="oi-model-${i}"></td>
+    <td><input class="meta-input" style="width:100%;font-size:12px;padding:4px 6px" placeholder="表面要求" id="oi-surface-${i}"></td>
+    <td><input class="meta-input" style="width:100%;font-size:12px;padding:4px 6px" placeholder="品质" id="oi-grade-${i}"></td>
+    <td><input class="meta-input" style="width:80px;font-size:12px;padding:4px 6px" type="number" placeholder="单价" oninput="calcItemRow(${i})" id="oi-price-${i}"></td>
+    <td><input class="meta-input" style="width:70px;font-size:12px;padding:4px 6px" type="number" placeholder="数量" oninput="calcItemRow(${i})" id="oi-qty-${i}"></td>
+    <td><input class="meta-input" style="width:90px;font-size:12px;padding:4px 6px;background:#FAFAFA" readonly placeholder="小计" id="oi-sub-${i}"></td>
+    <td><button style="background:none;border:none;cursor:pointer;color:var(--light);font-size:14px;padding:2px 4px" onclick="removeOrderItem(${i})" title="删除">🗑️</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function removeOrderItem(i) {
+  const row = document.getElementById(`oi-name-${i}`)?.closest('tr');
+  if (row) { row.remove(); recalcOrderTotal(); }
+}
+
+function getOrderItems() {
+  const tbody = document.getElementById('order-items-tbody');
+  if (!tbody) return [];
+  const items = [];
+  tbody.querySelectorAll('tr').forEach((_, i) => {
+    const name = document.getElementById(`oi-name-${i}`)?.value.trim() || '';
+    if (!name) return;
+    items.push({
+      name,
+      size:      document.getElementById(`oi-size-${i}`)?.value.trim()    || '',
+      model:     document.getElementById(`oi-model-${i}`)?.value.trim()   || '',
+      surface:   document.getElementById(`oi-surface-${i}`)?.value.trim() || '',
+      grade:     document.getElementById(`oi-grade-${i}`)?.value.trim()   || '',
+      unit_price:document.getElementById(`oi-price-${i}`)?.value          || '',
+      qty:       document.getElementById(`oi-qty-${i}`)?.value            || '',
+      subtotal:  document.getElementById(`oi-sub-${i}`)?.value            || '',
+    });
+  });
+  return items;
 }
 
 function onOrderCustomerChange(sel) {
@@ -2522,7 +2651,9 @@ function saveOrderForm() {
     order_contact:      document.getElementById('of-contact').value.trim(),
     order_no:           document.getElementById('of-order-no').value.trim(),
     stage:              document.getElementById('of-stage').value,
-    product_desc:       document.getElementById('of-product-desc').value.trim(),
+    price_terms:        document.getElementById('of-price-terms').value,
+    order_items:        getOrderItems(),
+    product_desc:       getOrderItems().map(it=>it.name).filter(Boolean).join(' / ') || '',
     total_amount:       document.getElementById('of-total-amount').value,
     deposit_amount:     pt==='tt' ? String(Math.round(totalAmt*dep_pct/100*100)/100) : '',
     payment_terms_type: pt,
@@ -2722,13 +2853,35 @@ function openCustomer(id) {
   document.getElementById('modal-fields').innerHTML = `
     <div class="field-item" style="grid-column:1/-1"><label>客户名称</label><input class="meta-input" id="mf-name" value="${c.name||''}" style="width:100%" placeholder="客户公司名称"></div>
     <div class="field-item"><label>国家/地区</label><input class="meta-input" id="mf-country" value="${c.country||''}" style="width:100%" placeholder="如：缅甸"></div>
-    <div class="field-item"><label>客户类型</label><input class="meta-input" id="mf-type" value="${c.type||''}" style="width:100%" placeholder="如：经销商"></div>
+    <div class="field-item"><label>客户类型</label>
+      <select class="meta-select" id="mf-type" style="width:100%">
+        <option value="">— 请选择 —</option>
+        <option value="HPL经销商" ${c.type==='HPL经销商'?'selected':''}>HPL经销商</option>
+        <option value="板材贸易商" ${c.type==='板材贸易商'?'selected':''}>板材贸易商</option>
+        <option value="工程商" ${c.type==='工程商'?'selected':''}>工程商</option>
+        <option value="家具厂" ${c.type==='家具厂'?'selected':''}>家具厂</option>
+        <option value="设计公司" ${c.type==='设计公司'?'selected':''}>设计公司</option>
+        <option value="建筑公司" ${c.type==='建筑公司'?'selected':''}>建筑公司</option>
+        <option value="其他" ${c.type&&!['HPL经销商','板材贸易商','工程商','家具厂','设计公司','建筑公司'].includes(c.type)?'selected':''}>其他</option>
+      </select></div>
     <div class="field-item"><label>联系人</label><input class="meta-input" id="mf-contact" value="${c.contact||''}" style="width:100%" placeholder="联系人姓名"></div>
     <div class="field-item"><label>负责业务员</label>
       <select class="meta-select" id="mf-employee" style="width:100%">${empOptions}</select>
     </div>
     <div class="field-item"><label>主要沟通方式</label><input class="meta-input" id="mf-comm" value="${c.comm_channel||''}" style="width:100%" placeholder="如：微信 / WhatsApp"></div>
-    <div class="field-item"><label>客户来源</label><input class="meta-input" id="mf-source" value="${c.source||''}" style="width:100%" placeholder="如：展会 / 独立站"></div>
+    <div class="field-item"><label>客户来源</label>
+      <select class="meta-select" id="mf-source" style="width:100%">
+        <option value="">— 请选择 —</option>
+        <option value="独立站" ${c.source==='独立站'?'selected':''}>独立站</option>
+        <option value="外贸通" ${c.source==='外贸通'?'selected':''}>外贸通</option>
+        <option value="付费展会" ${c.source==='付费展会'?'selected':''}>付费展会</option>
+        <option value="免费展会" ${c.source==='免费展会'?'selected':''}>免费展会</option>
+        <option value="社媒营销" ${c.source==='社媒营销'?'selected':''}>社媒营销</option>
+        <option value="同行介绍" ${c.source==='同行介绍'?'selected':''}>同行介绍</option>
+        <option value="老客户介绍" ${c.source==='老客户介绍'?'selected':''}>老客户介绍</option>
+        <option value="海关数据" ${c.source==='海关数据'?'selected':''}>海关数据</option>
+        <option value="其他" ${c.source&&!['独立站','外贸通','付费展会','免费展会','社媒营销','同行介绍','老客户介绍','海关数据'].includes(c.source)?'selected':''}>其他</option>
+      </select></div>
     <div class="field-item"><label>现有供应商</label><input class="meta-input" id="mf-supplier" value="${c.existing_supplier||''}" style="width:100%" placeholder="竞品供应商"></div>
     <div class="field-item"><label>需求产品</label><input class="meta-input" id="mf-products" value="${c.required_products||''}" style="width:100%" placeholder="如：HPL 0.7mm"></div>
     <div class="field-item"><label>采购量评估</label><input class="meta-input" id="mf-volume" value="${c.purchase_volume||''}" style="width:100%" placeholder="如：每年6个柜"></div>
@@ -2800,7 +2953,27 @@ function renderModalOrders() {
       <div style="font-size:11px;color:var(--light);margin-top:3px">下单：${formatDate(o.order_date)}${o.ship_eta?` · 预计发货：${formatDate(o.ship_eta)}`:''}${totalAmt?` · 已收 $${totalPaid.toLocaleString()}/${totalAmt.toLocaleString()}`:''}</div>
       ${buildGantt(o)}
     `;
-    div.onclick = () => { closeModal(); setTimeout(()=>{ switchView('orders'); }, 100); };
+    div.onclick = () => {
+      closeModal();
+      setTimeout(() => {
+        switchView('orders');
+        setTimeout(() => {
+          const orderEl = document.getElementById('order-body-' + o.id);
+          if (orderEl) {
+            // Expand the order body
+            orderEl.style.display = '';
+            // Scroll to it
+            orderEl.closest('.order-card')?.scrollIntoView({ behavior:'smooth', block:'center' });
+            // Highlight briefly
+            const card = orderEl.closest('.order-card');
+            if (card) {
+              card.style.boxShadow = '0 0 0 2px var(--orange)';
+              setTimeout(() => { card.style.boxShadow = ''; }, 2000);
+            }
+          }
+        }, 150);
+      }, 100);
+    };
     el.appendChild(div);
   });
 }
@@ -3646,7 +3819,16 @@ function openNewCustomerModal() {
         <input class="meta-input" id="nc-country" style="width:100%" placeholder="如：缅甸">
       </div>
       <div class="field-item"><label>客户类型</label>
-        <input class="meta-input" id="nc-type" style="width:100%" placeholder="如：经销商、工程商">
+        <select class="meta-select" id="nc-type" style="width:100%">
+          <option value="">— 请选择 —</option>
+          <option value="HPL经销商">HPL经销商</option>
+          <option value="板材贸易商">板材贸易商</option>
+          <option value="工程商">工程商</option>
+          <option value="家具厂">家具厂</option>
+          <option value="设计公司">设计公司</option>
+          <option value="建筑公司">建筑公司</option>
+          <option value="其他">其他</option>
+        </select>
       </div>
       <div class="field-item"><label>负责业务员</label>
         <select class="meta-select" id="nc-employee" style="width:100%">${empOptions}</select>
@@ -3666,7 +3848,18 @@ function openNewCustomerModal() {
         <input class="meta-input" id="nc-comm" style="width:100%" placeholder="如：微信 / WhatsApp">
       </div>
       <div class="field-item"><label>客户来源</label>
-        <input class="meta-input" id="nc-source" style="width:100%" placeholder="如：展会 / 独立站">
+        <select class="meta-select" id="nc-source" style="width:100%">
+          <option value="">— 请选择 —</option>
+          <option value="独立站">独立站</option>
+          <option value="外贸通">外贸通</option>
+          <option value="付费展会">付费展会</option>
+          <option value="免费展会">免费展会</option>
+          <option value="社媒营销">社媒营销</option>
+          <option value="同行介绍">同行介绍</option>
+          <option value="老客户介绍">老客户介绍</option>
+          <option value="海关数据">海关数据</option>
+          <option value="其他">其他</option>
+        </select>
       </div>
       <div class="field-item"><label>需求产品</label>
         <input class="meta-input" id="nc-products" style="width:100%" placeholder="如：HPL 0.7mm">
@@ -3746,6 +3939,7 @@ Object.assign(window, {
   openNewCustomerModal, closeNewCustomerModal, saveNewCustomer,
   renderCustomers, renderClosed, renderOrders, renderReminders,
   signInWithGoogle, signOut,
+  calcItemRow, addOrderItem, removeOrderItem,
 });
 </script>
 </body>
