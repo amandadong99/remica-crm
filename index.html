@@ -433,6 +433,28 @@ table.data-table tr:hover td { background: #FAFAFA; }
   .field-grid { grid-template-columns: 1fr; }
   .field-grid-3 { grid-template-columns: 1fr 1fr; }
 
+  /* ── Fix customer row height on mobile ── */
+  .customer-row {
+    padding: 8px 10px;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    min-height: unset;
+    height: auto;
+  }
+  .cr-name { min-width: unset; flex: 1 1 auto; font-size: 13px; }
+  .cr-country { min-width: unset; font-size: 11px; }
+  .cr-type { min-width: unset; font-size: 11px; }
+  .cr-employee { min-width: unset; font-size: 11px; }
+  .cr-last { display: none; }
+  .cr-action { font-size: 11px; width: 100%; }
+  .cr-reminder { font-size: 10px; }
+
+  /* ── Fix exhib row ── */
+  .exhib-row {
+    flex-wrap: wrap; gap: 4px; padding: 8px 10px; height: auto; min-height: unset;
+  }
+
   #modal-box { width: 100vw; max-width: 100vw; max-height: 100vh; border-radius: 0; }
   #order-modal-box { width: 100vw; max-width: 100vw; max-height: 100vh; border-radius: 0; }
 
