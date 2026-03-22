@@ -1870,15 +1870,11 @@ function buildOrderCard(o) {
   const totalStages = STAGES.length;
   const currentStep = stageIdx + 1;
   const progressPct = Math.round(currentStep / totalStages * 100);
-  const stageColors = { confirmed:'#1565C0', production:'#E65100', inspection:'#6A1B9A', customs:'#BF360C', transit:'#1B5E20', arrived:'#006064', completed:'#424242' };
-  const barColor = stageColors[o.stage] || 'var(--orange)';
   const miniSteps = STAGES.map((s,i) => {
-    const done = i < stageIdx;
-    const active = i === stageIdx;
-    const bg = done ? barColor : active ? barColor : '#E0E0E0';
-    const opacity = done ? '1' : active ? '1' : '0.25';
-    return `<div style="flex:1;height:4px;background:${bg};opacity:${opacity};border-radius:2px"></div>`;
-  }).join('<div style="width:2px"></div>');
+    const done = i <= stageIdx;
+    const bg = done ? '#43A047' : '#E0E0E0';
+    return `<div style="flex:1;height:7px;background:${bg};border-radius:3px"></div>`;
+  }).join('<div style="width:3px"></div>');
 
   div.innerHTML = `
     <div class="order-card-header" onclick="toggleOrderBody('${o.id}')">
@@ -1899,8 +1895,8 @@ function buildOrderCard(o) {
           ${totalAmt?`<span style="font-size:12px;color:var(--mid)">已收 $${totalPaid.toLocaleString()} (${paidPct}%)</span>`:''}
           ${remaining&&paidPct<100?`<span style="font-size:12px;color:var(--hot)">应收 $${remaining.toLocaleString()}</span>`:''}
         </div>
-        <div style="display:flex;align-items:center;gap:2px;margin-top:7px">${miniSteps}</div>
-        <div style="font-size:10px;color:var(--light);margin-top:2px">${currentStep}/${totalStages} · ${stageDef.label}</div>
+        <div style="display:flex;align-items:center;gap:3px;margin-top:8px;max-width:33%;min-width:200px">${miniSteps}</div>
+        <div style="font-size:10px;color:var(--light);margin-top:3px">${currentStep}/${totalStages} · ${stageDef.label}</div>
       </div>
       <div style="font-size:12px;color:var(--light)">▼</div>
     </div>
