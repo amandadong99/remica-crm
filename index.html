@@ -1,0 +1,2940 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>客户情报管理系统 · Remica</title>
+<style>
+:root {
+  --orange: #E8431C;
+  --orange-dark: #C2340F;
+  --orange-light: #FDEAE4;
+  --hot: #E53935;
+  --hot-bg: #FFEBEE;
+  --warm: #FB8C00;
+  --warm-bg: #FFF3E0;
+  --cool: #43A047;
+  --cool-bg: #E8F5E9;
+  --cold: #1E88E5;
+  --cold-bg: #E3F2FD;
+  --closed: #7B1FA2;
+  --closed-bg: #F3E5F5;
+  --operational: #757575;
+  --operational-bg: #F5F5F5;
+  --dark: #2C2C2C;
+  --mid: #555;
+  --light: #888;
+  --border: #E0E0E0;
+  --bg: #F4F4F6;
+  --white: #FFFFFF;
+  --sidebar-w: 210px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--dark);
+  font-size: 13px;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  width: var(--sidebar-w);
+  background: var(--dark);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.sidebar-logo {
+  padding: 20px 16px 14px;
+  border-bottom: 1px solid #444;
+}
+.sidebar-logo .logo-title { font-size: 15px; font-weight: bold; color: var(--orange); letter-spacing: 0.3px; }
+.sidebar-logo .logo-sub { font-size: 11px; color: #888; margin-top: 3px; }
+nav { flex: 1; padding: 10px 0; }
+.nav-section { font-size: 10px; color: #555; padding: 8px 18px 3px; text-transform: uppercase; letter-spacing: 0.8px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 18px; cursor: pointer; color: #bbb;
+  font-size: 13px; border-left: 3px solid transparent; transition: all 0.15s;
+}
+.nav-item:hover { color: #fff; background: rgba(255,255,255,0.06); }
+.nav-item.active { color: #fff; border-left-color: var(--orange); background: rgba(232,67,28,0.12); }
+.nav-item .icon { font-size: 15px; width: 20px; text-align: center; }
+.nav-badge {
+  margin-left: auto; background: var(--hot); color: #fff;
+  font-size: 10px; padding: 1px 5px; border-radius: 99px; min-width: 18px; text-align: center;
+}
+.sidebar-bottom { padding: 14px 18px; border-top: 1px solid #444; font-size: 11px; color: #555; }
+
+/* ── Main ── */
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; height: 100vh; }
+#backup-banner { display:none; background:#C62828; padding:10px 24px; align-items:center; gap:12px; flex-shrink:0; }
+.topbar {
+  background: var(--white); border-bottom: 1px solid var(--border);
+  padding: 0 24px; height: 52px;
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.topbar-title { font-size: 16px; font-weight: bold; color: var(--dark); }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+/* ── View panels ── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── Cards ── */
+.card { background: var(--white); border-radius: 10px; border: 1px solid var(--border); padding: 18px 20px; margin-bottom: 16px; }
+.card-title { font-size: 14px; font-weight: bold; color: var(--dark); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+
+/* ── Heat Badge ── */
+.heat-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: bold; white-space: nowrap;
+}
+.heat-hot         { background: var(--hot-bg);         color: var(--hot); }
+.heat-warm        { background: var(--warm-bg);        color: var(--warm); }
+.heat-cool        { background: var(--cool-bg);        color: var(--cool); }
+.heat-cold        { background: var(--cold-bg);        color: var(--cold); }
+.heat-closed      { background: var(--closed-bg);      color: var(--closed); }
+.heat-operational { background: var(--operational-bg); color: var(--operational); }
+
+/* ── Grade Badge ── */
+.grade-badge {
+  display: inline-flex; align-items: center; padding: 1px 7px;
+  border-radius: 4px; font-size: 11px; font-weight: bold; white-space: nowrap;
+}
+.grade-aplus { background: #FFD600; color: #5D4037; }
+.grade-a     { background: #E53935; color: #fff; }
+.grade-b     { background: #FB8C00; color: #fff; }
+.grade-c     { background: #43A047; color: #fff; }
+.grade-d     { background: #90A4AE; color: #fff; }
+
+/* ── Dashboard stat row ── */
+.stat-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
+.stat-row > [style*="grid-column:1/-1"] { grid-column: 1 / -1; }
+.mgmt-stat-row { display: block; }
+.stat-card { background: var(--white); border-radius: 10px; border: 1px solid var(--border); padding: 14px 16px; text-align: center; }
+.stat-card .stat-num { font-size: 26px; font-weight: bold; }
+.stat-card .stat-label { font-size: 11px; color: var(--light); margin-top: 3px; }
+.stat-hot .stat-num    { color: var(--hot); }
+.stat-warm .stat-num   { color: var(--warm); }
+.stat-cool .stat-num   { color: var(--cool); }
+.stat-cold .stat-num   { color: var(--cold); }
+.stat-total .stat-num  { color: var(--orange); }
+.stat-closed .stat-num { color: var(--closed); }
+
+/* ── Heat sections ── */
+.heat-section { margin-bottom: 20px; }
+.heat-section-title {
+  font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+}
+.hs-hot    { background: var(--hot-bg);  color: var(--hot); }
+.hs-warm   { background: var(--warm-bg); color: var(--warm); }
+.hs-cool   { background: var(--cool-bg); color: var(--cool); }
+.hs-cold   { background: var(--cold-bg); color: var(--cold); }
+.hs-closed { background: var(--closed-bg); color: var(--closed); }
+.hs-operational { background: var(--operational-bg); color: var(--operational); }
+
+/* ── Customer Row ── */
+.customer-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; background: var(--white); border: 1px solid var(--border);
+  border-radius: 8px; margin-bottom: 6px; cursor: pointer; transition: box-shadow 0.15s;
+}
+.customer-row:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+.cr-name { font-weight: bold; font-size: 13px; min-width: 120px; }
+.cr-country { color: var(--light); font-size: 12px; min-width: 70px; }
+.cr-type { color: var(--mid); font-size: 12px; min-width: 80px; }
+.cr-employee { color: var(--light); font-size: 12px; min-width: 65px; }
+.cr-last { color: var(--light); font-size: 11px; min-width: 90px; }
+.cr-action { flex: 1; font-size: 12px; color: var(--mid); }
+.cr-reminder { font-size: 11px; padding: 2px 7px; border-radius: 99px; background: var(--orange-light); color: var(--orange-dark); white-space: nowrap; }
+.cr-reminder.overdue { background: var(--hot-bg); color: var(--hot); }
+
+/* ── Parse ── */
+.parse-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+textarea.report-input { width: 100%; height: 280px; border: 1.5px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; font-family: inherit; resize: vertical; line-height: 1.6; }
+textarea.report-input:focus { outline: none; border-color: var(--orange); }
+.parse-result-area { height: 280px; overflow-y: auto; border: 1.5px solid var(--border); border-radius: 8px; padding: 12px; font-size: 12px; background: #FAFAFA; line-height: 1.7; }
+.parse-meta { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+select.meta-select, input.meta-input {
+  border: 1.5px solid var(--border); border-radius: 6px; padding: 6px 10px;
+  font-size: 13px; font-family: inherit; background: var(--white);
+}
+select.meta-select:focus, input.meta-input:focus { outline: none; border-color: var(--orange); }
+
+/* ── Buttons ── */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 7px; font-size: 13px; font-family: inherit; cursor: pointer; border: none; transition: opacity 0.15s, transform 0.1s; }
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--orange); color: #fff; font-weight: bold; }
+.btn-primary:hover { background: var(--orange-dark); }
+.btn-secondary { background: var(--bg); color: var(--mid); border: 1px solid var(--border); }
+.btn-secondary:hover { background: #e8e8eb; }
+.btn-danger { background: #FFEBEE; color: var(--hot); border: 1px solid #FFCDD2; }
+.btn-danger:hover { background: #FFCDD2; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Modal ── */
+#modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1000; align-items: center; justify-content: center; }
+#modal-overlay.open { display: flex; }
+#modal-box { background: var(--white); border-radius: 12px; width: 720px; max-width: 96vw; max-height: 92vh; display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,0.18); }
+.modal-header { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.modal-header h2 { font-size: 16px; font-weight: bold; }
+.modal-body { padding: 16px 22px; overflow-y: auto; flex: 1; }
+.modal-footer { padding: 12px 22px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--light); padding: 0 4px; line-height: 1; }
+.modal-close:hover { color: var(--dark); }
+
+/* Modal tabs */
+.modal-tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 14px; }
+.modal-tab { padding: 7px 16px; font-size: 13px; background: none; border: none; cursor: pointer; color: var(--light); border-bottom: 3px solid transparent; margin-bottom: -2px; font-family: inherit; }
+.modal-tab:hover { color: var(--dark); }
+.modal-tab.active { color: var(--orange-dark); border-bottom-color: var(--orange); font-weight: bold; }
+.modal-tab-pane { display: none; }
+.modal-tab-pane.active { display: block; }
+
+/* ── Timeline ── */
+.timeline { border-left: 2px solid var(--orange-light); padding-left: 14px; margin-top: 10px; }
+.tl-item { position: relative; margin-bottom: 12px; }
+.tl-dot { position: absolute; left: -19px; top: 4px; width: 8px; height: 8px; background: var(--orange); border-radius: 50%; }
+.tl-date { font-size: 11px; color: var(--light); }
+.tl-text { font-size: 12px; color: var(--mid); margin-top: 2px; line-height: 1.5; }
+.tl-employee { font-size: 11px; color: var(--orange-dark); }
+
+/* ── Field grid ── */
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin-bottom: 12px; }
+.field-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 16px; margin-bottom: 12px; }
+.field-item label { font-size: 11px; color: var(--light); display: block; margin-bottom: 2px; }
+.field-item .fval { font-size: 13px; color: var(--dark); font-weight: 500; }
+
+/* ── Reminder ── */
+.reminder-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--white); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+.ri-date { font-size: 12px; font-weight: bold; min-width: 80px; }
+.ri-name { font-weight: bold; min-width: 120px; }
+.ri-note { flex: 1; color: var(--mid); font-size: 12px; }
+.ri-overdue .ri-date { color: var(--hot); }
+.ri-today .ri-date   { color: var(--warm); }
+
+/* ── Exhibition ── */
+.exhib-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--white); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; }
+.exhib-status { font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: bold; }
+.es-attending  { background: #E8F5E9; color: #2E7D32; }
+.es-interested { background: #FFF3E0; color: #E65100; }
+.es-not        { background: var(--operational-bg); color: var(--operational); }
+
+/* ── Settings ── */
+.settings-section { margin-bottom: 20px; }
+.settings-section h3 { font-size: 13px; font-weight: bold; margin-bottom: 10px; color: var(--dark); }
+.tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.tag-chip { display: flex; align-items: center; gap: 5px; background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 3px 10px; font-size: 12px; }
+.tag-chip .remove-tag { cursor: pointer; color: var(--light); font-size: 14px; line-height: 1; }
+.tag-chip .remove-tag:hover { color: var(--hot); }
+
+/* ── Spinner ── */
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ddd; border-top-color: var(--orange); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Table ── */
+table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.data-table th { text-align: left; padding: 8px 10px; background: var(--bg); color: var(--light); font-size: 11px; font-weight: 600; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.data-table td { padding: 9px 10px; border-bottom: 1px solid #F0F0F0; vertical-align: middle; }
+table.data-table tr:hover td { background: #FAFAFA; }
+
+/* ── Tabs ── */
+.tab-row { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
+.tab-btn { padding: 8px 18px; font-size: 13px; background: none; border: none; cursor: pointer; color: var(--light); border-bottom: 3px solid transparent; margin-bottom: -2px; font-family: inherit; transition: color 0.15s; }
+.tab-btn:hover { color: var(--dark); }
+.tab-btn.active { color: var(--orange-dark); border-bottom-color: var(--orange); font-weight: bold; }
+
+/* ── Search ── */
+.search-input { border: 1.5px solid var(--border); border-radius: 7px; padding: 7px 12px; font-size: 13px; font-family: inherit; width: 220px; }
+.search-input:focus { outline: none; border-color: var(--orange); }
+
+/* ── Toast ── */
+#toast { position: fixed; bottom: 28px; right: 28px; background: var(--dark); color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; z-index: 9999; opacity: 0; transition: opacity 0.25s; pointer-events: none; }
+#toast.show { opacity: 1; }
+
+/* ── Empty ── */
+.empty-state { text-align: center; padding: 48px 20px; color: var(--light); }
+.empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-state p { font-size: 14px; }
+
+/* ── Parsed card ── */
+.parsed-customer-card { border: 1.5px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; background: var(--white); }
+.parsed-customer-card .pc-name { font-weight: bold; font-size: 14px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.parsed-customer-card .pc-field { font-size: 12px; color: var(--mid); margin-bottom: 3px; }
+.parsed-customer-card .pc-field span { color: var(--dark); font-weight: 500; }
+.parsed-customer-card .pc-note { margin-top: 6px; font-size: 12px; color: var(--mid); background: var(--bg); border-radius: 5px; padding: 6px 8px; line-height: 1.5; }
+.conflict-badge { font-size: 11px; padding: 2px 7px; border-radius: 99px; background: #FFF3E0; color: #E65100; font-weight: bold; }
+.new-badge { font-size: 11px; padding: 2px 7px; border-radius: 99px; background: #E8F5E9; color: #2E7D32; font-weight: bold; }
+
+/* ── Kanban ── */
+#employee-kanban { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 12px; align-items: flex-start; }
+.kanban-col { flex: 0 0 260px; min-width: 240px; background: var(--white); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.kanban-col-header { padding: 10px 14px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: space-between; background: var(--bg); border-bottom: 1px solid var(--border); }
+.kanban-col-header .emp-name { color: var(--dark); }
+.kanban-col-header .emp-count { font-size: 11px; font-weight: normal; color: var(--light); background: var(--border); padding: 1px 7px; border-radius: 99px; }
+.kanban-col-stats { display: flex; gap: 4px; padding: 6px 10px; background: #FAFAFA; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.kanban-stat-pill { font-size: 10px; padding: 1px 6px; border-radius: 99px; font-weight: bold; }
+.kanban-cards { padding: 8px; max-height: calc(100vh - 280px); overflow-y: auto; }
+.kanban-card { background: var(--white); border: 1px solid var(--border); border-radius: 7px; padding: 9px 11px; margin-bottom: 7px; cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s; }
+.kanban-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.09); border-color: #ccc; }
+.kanban-card-name { font-weight: bold; font-size: 13px; margin-bottom: 5px; }
+.kanban-card-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 4px; }
+.kanban-card-action { font-size: 11px; color: var(--mid); margin-top: 4px; line-height: 1.4; }
+.kanban-card-reminder { font-size: 10px; padding: 1px 6px; border-radius: 99px; background: var(--orange-light); color: var(--orange-dark); white-space: nowrap; margin-top: 5px; display: inline-block; }
+.kanban-card-reminder.overdue { background: var(--hot-bg); color: var(--hot); }
+.kanban-card-reminder.today   { background: var(--warm-bg); color: var(--warm); }
+.kanban-empty { padding: 18px 10px; text-align: center; color: var(--light); font-size: 12px; }
+.kanban-heat-bar { height: 3px; border-radius: 99px; margin-bottom: 6px; }
+.kanban-heat-bar.hot         { background: var(--hot); }
+.kanban-heat-bar.warm        { background: var(--warm); }
+.kanban-heat-bar.cool        { background: var(--cool); }
+.kanban-heat-bar.cold        { background: var(--cold); }
+.kanban-heat-bar.closed      { background: var(--closed); }
+.kanban-heat-bar.operational { background: var(--operational); }
+
+/* ── Priority sections ── */
+.priority-section-title { font-size: 12px; font-weight: bold; padding: 7px 12px; border-radius: 7px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.priority-overdue-title { background: var(--hot-bg); color: var(--hot); border-left: 3px solid var(--hot); }
+.priority-today-title   { background: var(--warm-bg); color: var(--warm); border-left: 3px solid var(--warm); }
+.priority-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--white); border: 1px solid var(--border); border-radius: 7px; margin-bottom: 5px; cursor: pointer; transition: box-shadow 0.12s; }
+.priority-row:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+.priority-row.overdue { border-left: 3px solid var(--hot); }
+.priority-row.today   { border-left: 3px solid var(--warm); }
+.pr-days { font-size: 11px; font-weight: bold; min-width: 60px; white-space: nowrap; }
+.pr-days.overdue { color: var(--hot); }
+.pr-days.today   { color: var(--warm); }
+.pr-name { font-weight: bold; font-size: 13px; min-width: 110px; }
+.pr-emp  { font-size: 11px; color: var(--light); min-width: 60px; }
+.pr-action { flex: 1; font-size: 12px; color: var(--mid); }
+
+/* ── Management Dashboard ── */
+.mgmt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.mgmt-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.mgmt-stat-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px; }
+.country-rank-item { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #F0F0F0; }
+.country-rank-num { font-size: 12px; font-weight: bold; color: var(--light); min-width: 20px; text-align: center; }
+.country-rank-name { font-weight: bold; min-width: 80px; }
+.country-rank-bar-wrap { flex: 1; height: 6px; background: #F0F0F0; border-radius: 99px; overflow: hidden; }
+.country-rank-bar { height: 100%; border-radius: 99px; background: var(--orange); }
+.country-rank-count { font-size: 12px; font-weight: bold; color: var(--dark); min-width: 28px; text-align: right; }
+.emp-perf-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--white); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; }
+.emp-perf-name { font-weight: bold; min-width: 70px; }
+.emp-perf-pills { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+.emp-perf-total { font-weight: bold; font-size: 13px; min-width: 30px; text-align: right; }
+.emp-perf-new   { font-size: 11px; color: var(--cool); min-width: 60px; text-align: right; }
+
+/* ── Orders ── */
+.order-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 14px; overflow: hidden; }
+.order-card-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #FAFAFA; border-bottom: 1px solid var(--border); cursor: pointer; }
+.order-card-header:hover { background: #F0F0F2; }
+.order-no { font-weight: bold; font-size: 13px; }
+.order-customer { color: var(--mid); font-size: 12px; }
+.order-amount { font-weight: bold; color: var(--orange); }
+.order-stage-badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: bold; white-space: nowrap; }
+.os-confirmed   { background: #E3F2FD; color: #1565C0; }
+.os-production  { background: #FFF3E0; color: #E65100; }
+.os-inspection  { background: #F3E5F5; color: #6A1B9A; }
+.os-customs     { background: #FBE9E7; color: #BF360C; }
+.os-transit     { background: #E8F5E9; color: #1B5E20; }
+.os-arrived     { background: #E0F7FA; color: #006064; }
+.os-completed   { background: #F5F5F5; color: #424242; }
+.order-body { padding: 14px 16px; }
+.order-fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 16px; margin-bottom: 14px; }
+.order-field label { font-size: 11px; color: var(--light); display: block; margin-bottom: 2px; }
+.order-field .ofval { font-size: 13px; color: var(--dark); font-weight: 500; }
+
+/* ── Gantt ── */
+.gantt-wrap { overflow-x: auto; margin-bottom: 14px; }
+.gantt { display: flex; align-items: stretch; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); min-width: 600px; }
+.gantt-step {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 8px 4px; font-size: 10px; text-align: center; position: relative;
+  background: #F8F8F8; border-right: 1px solid var(--border); transition: background 0.2s;
+}
+.gantt-step:last-child { border-right: none; }
+.gantt-step.done { background: var(--cool-bg); }
+.gantt-step.active { background: var(--orange-light); }
+.gantt-step.done .gantt-icon   { color: var(--cool); }
+.gantt-step.active .gantt-icon { color: var(--orange); }
+.gantt-icon { font-size: 16px; margin-bottom: 3px; }
+.gantt-label { font-size: 10px; color: var(--mid); line-height: 1.3; }
+.gantt-date  { font-size: 9px; color: var(--light); margin-top: 2px; }
+.gantt-arrow { position: absolute; right: -8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--border); z-index: 1; }
+
+/* ── Payment progress ── */
+.payment-bar-wrap { background: #F0F0F0; border-radius: 99px; height: 8px; overflow: hidden; margin: 6px 0; }
+.payment-bar { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--cool), #66BB6A); transition: width 0.4s; }
+.payment-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--mid); }
+
+/* ── Payment record ── */
+.payment-record { display: flex; align-items: center; gap: 10px; padding: 7px 10px; background: var(--bg); border-radius: 6px; margin-bottom: 5px; font-size: 12px; }
+.pr-type { font-weight: bold; min-width: 60px; }
+.pr-amount { color: var(--cool); font-weight: bold; }
+.pr-date-col { color: var(--light); min-width: 80px; }
+.pr-note { flex: 1; color: var(--mid); }
+
+/* ── Order Modal ── */
+#order-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1100; align-items: center; justify-content: center; }
+#order-modal-overlay.open { display: flex; }
+#order-modal-box { background: var(--white); border-radius: 12px; width: 780px; max-width: 96vw; max-height: 92vh; display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,0.18); }
+
+/* ── Weekly report ── */
+.weekly-section-head { font-weight: bold; font-size: 14px; color: var(--dark); border-bottom: 1px solid var(--border); padding-bottom: 4px; margin: 18px 0 8px; }
+
+/* ── Responsive ── */
+@media (max-width: 1100px) { .mgmt-grid { grid-template-columns: 1fr; } .mgmt-stat-row { grid-template-columns: repeat(3,1fr); } }
+@media (max-width: 900px)  { .parse-layout { grid-template-columns: 1fr; } .stat-row { grid-template-columns: repeat(3, 1fr); } }
+</style>
+
+<!-- ══ Login Screen ══ -->
+<style>
+#login-screen {
+  display: none; position: fixed; inset: 0; background: var(--bg);
+  z-index: 9999; align-items: center; justify-content: center; flex-direction: column;
+}
+#login-screen.show { display: flex; }
+.login-box {
+  background: var(--white); border-radius: 16px; border: 1px solid var(--border);
+  padding: 40px 48px; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.10);
+  max-width: 380px; width: 90%;
+}
+.login-logo { font-size: 22px; font-weight: bold; color: var(--orange); margin-bottom: 6px; }
+.login-sub  { font-size: 13px; color: var(--light); margin-bottom: 32px; }
+.login-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; padding: 12px 20px; border-radius: 8px; border: 1.5px solid var(--border);
+  background: var(--white); font-size: 14px; font-weight: bold; color: var(--dark);
+  cursor: pointer; transition: background 0.15s, box-shadow 0.15s;
+}
+.login-btn:hover { background: var(--bg); box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+.login-btn svg { flex-shrink: 0; }
+.login-error { font-size: 12px; color: var(--hot); margin-top: 14px; min-height: 16px; }
+#loading-screen {
+  display: flex; position: fixed; inset: 0; background: var(--bg);
+  z-index: 9998; align-items: center; justify-content: center; flex-direction: column; gap: 14px;
+}
+.loading-logo { font-size: 20px; font-weight: bold; color: var(--orange); }
+.loading-sub  { font-size: 13px; color: var(--light); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ LOADING SCREEN ══════════════════ -->
+<div id="loading-screen">
+  <div class="loading-logo">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="vertical-align:-3px;margin-right:6px" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="#E8431C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="#E8431C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>Remica CRM
+  </div>
+  <div class="spinner" style="width:20px;height:20px;border-width:3px"></div>
+  <div class="loading-sub">正在连接...</div>
+</div>
+
+<!-- ══════════════════ LOGIN SCREEN ══════════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style="vertical-align:-4px;margin-right:7px" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="#E8431C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="#E8431C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>Remica CRM
+    </div>
+    <div class="login-sub">客户情报管理系统 · 团队版</div>
+    <button class="login-btn" onclick="signInWithGoogle()">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.2 6.5 29.4 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.2 6.5 29.4 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.3 35.5 26.8 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5c3.3 6.4 10.1 11 17.8 11z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.3 4.2-4.2 5.6l6.2 5.2C41 35.7 44 30.2 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
+      使用 Google 账号登录
+    </button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ══════════════════ SIDEBAR ══════════════════ -->
+<div id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:6px" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="#E8431C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="#E8431C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>客户情报
+    </div>
+    <div class="logo-sub">Remica · 管理员版</div>
+  </div>
+  <nav>
+    <div class="nav-section">概览</div>
+    <div class="nav-item active" onclick="switchView('dashboard')"><span class="icon">📊</span> 热度看板</div>
+    <div class="nav-item" onclick="switchView('mgmt')"><span class="icon">🏢</span> 管理看板</div>
+    <div class="nav-section">跟进</div>
+    <div class="nav-item" onclick="switchView('reminders')"><span class="icon">🔔</span> 跟进提醒<span class="nav-badge" id="reminder-badge" style="display:none">0</span></div>
+    <div class="nav-item" onclick="switchView('customers')"><span class="icon">👥</span> 客户列表</div>
+    <div class="nav-section">成交</div>
+    <div class="nav-item" onclick="switchView('closed')"><span class="icon">🏆</span> 成交客户</div>
+    <div class="nav-item" onclick="switchView('orders')"><span class="icon">📦</span> 订单管理<span class="nav-badge" id="order-badge" style="display:none">0</span></div>
+    <div class="nav-section">工具</div>
+    <div class="nav-item" onclick="switchView('parse')"><span class="icon">📋</span> 解析日报</div>
+    <div class="nav-item" onclick="switchView('exhibition')"><span class="icon">🏛️</span> 展会管理</div>
+    <div class="nav-item" onclick="switchView('weekly')"><span class="icon">📝</span> 周报生成</div>
+    <div class="nav-item" onclick="switchView('settings')"><span class="icon">⚙️</span> 设置</div>
+  </nav>
+  <div class="sidebar-bottom" style="padding:12px 18px">
+    <div id="sidebar-user-name" style="color:#bbb;font-size:11px;font-weight:bold;margin-bottom:2px">加载中...</div>
+    <div id="sidebar-user-email" style="color:#666;font-size:10px;margin-bottom:8px"></div>
+    <div style="color:#555;font-size:10px;margin-bottom:6px">v2.0 · Firebase 云端版</div>
+    <button onclick="signOut()" style="background:rgba(255,255,255,0.08);border:1px solid #444;color:#888;font-size:11px;border-radius:5px;padding:3px 10px;cursor:pointer;width:100%">退出登录</button>
+  </div>
+</div>
+
+<!-- ══════════════════ MAIN ══════════════════ -->
+<div id="main">
+  <!-- Backup Banner -->
+  <div id="backup-banner" style="display:none;background:#C62828;padding:10px 24px;align-items:center;gap:12px;flex-shrink:0">
+    <span style="font-size:16px">🚨</span>
+    <span id="backup-banner-msg" style="font-size:13px;color:#fff;font-weight:bold;flex:1;letter-spacing:0.2px"></span>
+    <button class="btn btn-sm" style="background:#fff;color:#C62828;font-weight:bold;border:none" onclick="exportData()">立即备份</button>
+    <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4)" onclick="dismissBanner()">忽略</button>
+  </div>
+
+  <div class="topbar">
+    <div class="topbar-title" id="topbar-title">热度看板</div>
+    <div class="topbar-right">
+      <button class="btn btn-secondary btn-sm" onclick="exportData()">💾 导出备份</button>
+      <button class="btn btn-secondary btn-sm" onclick="importData()">📂 导入备份</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div id="view-dashboard" class="view active">
+      <div class="stat-row" id="stat-row"></div>
+      <div id="priority-overdue-section" style="display:none;margin-bottom:14px">
+        <div class="priority-section-title priority-overdue-title" onclick="togglePriority('overdue')" style="cursor:pointer;user-select:none">
+          🚨 已逾期未跟进 <span id="priority-overdue-count" style="font-weight:normal;font-size:11px"></span>
+          <span id="priority-overdue-arrow" style="margin-left:auto;font-size:11px;transition:transform 0.2s">▶ 点击展开</span>
+        </div>
+        <div id="priority-overdue-list" style="display:none"></div>
+      </div>
+      <div id="priority-today-section" style="display:none;margin-bottom:14px">
+        <div class="priority-section-title priority-today-title" onclick="togglePriority('today')" style="cursor:pointer;user-select:none">
+          📅 今日需跟进 <span id="priority-today-count" style="font-weight:normal;font-size:11px"></span>
+          <span id="priority-today-arrow" style="margin-left:auto;font-size:11px;transition:transform 0.2s">▶ 点击展开</span>
+        </div>
+        <div id="priority-today-list" style="display:none"></div>
+      </div>
+      <div class="tab-row" style="margin-bottom:16px">
+        <button class="tab-btn active" id="dash-tab-heat" onclick="switchDashTab('heat',this)">🔥 按热度</button>
+        <button class="tab-btn" id="dash-tab-employee" onclick="switchDashTab('employee',this)">👤 按业务员</button>
+      </div>
+      <div id="heat-board"></div>
+      <div id="employee-kanban" style="display:none"></div>
+    </div>
+
+    <!-- ══ MANAGEMENT DASHBOARD ══ -->
+    <div id="view-mgmt" class="view">
+      <div class="mgmt-stat-row" id="mgmt-stat-row"></div>
+      <div class="card">
+        <div class="card-title">👤 业务员客户统计</div>
+        <div id="mgmt-employee-stats"></div>
+      </div>
+      <div class="mgmt-grid">
+        <div class="card">
+          <div class="card-title">🌍 客户国家分布（总数排名）</div>
+          <div id="mgmt-country-rank"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📈 本月新增国家排名</div>
+          <div id="mgmt-country-new-rank"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ REMINDERS ══ -->
+    <div id="view-reminders" class="view">
+      <div class="tab-row">
+        <button class="tab-btn active" onclick="switchReminderTab('overdue',this)">逾期 <span id="cnt-overdue" style="font-size:11px"></span></button>
+        <button class="tab-btn" onclick="switchReminderTab('today',this)">今日 <span id="cnt-today" style="font-size:11px"></span></button>
+        <button class="tab-btn" onclick="switchReminderTab('week',this)">本周 <span id="cnt-week" style="font-size:11px"></span></button>
+        <button class="tab-btn" onclick="switchReminderTab('all',this)">全部</button>
+      </div>
+      <div id="reminders-container"></div>
+    </div>
+
+    <!-- ══ CUSTOMERS ══ -->
+    <div id="view-customers" class="view">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+        <input type="text" class="search-input" id="customer-search" placeholder="🔍 搜索客户名/国家..." oninput="renderCustomers()">
+        <select class="meta-select" id="filter-heat" onchange="renderCustomers()">
+          <option value="">全部热度</option>
+          <option value="hot">🔥 热 (Hot)</option>
+          <option value="warm">♨️ Warm</option>
+          <option value="cool">🌱 Cool</option>
+          <option value="cold">❄️ Cold</option>
+          <option value="closed">🏆 成交</option>
+        </select>
+        <select class="meta-select" id="filter-employee" onchange="renderCustomers()">
+          <option value="">全部业务员</option>
+        </select>
+        <select class="meta-select" id="filter-grade" onchange="renderCustomers()">
+          <option value="">全部评级</option>
+          <option value="A Plus">A+</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+        </select>
+        <div style="margin-left:auto;font-size:12px;color:var(--light)" id="customer-count"></div>
+      </div>
+      <div id="customer-list-container"></div>
+    </div>
+
+    <!-- ══ CLOSED CUSTOMERS ══ -->
+    <div id="view-closed" class="view">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+        <input type="text" class="search-input" id="closed-search" placeholder="🔍 搜索成交客户..." oninput="renderClosed()">
+        <select class="meta-select" id="closed-filter-employee" onchange="renderClosed()">
+          <option value="">全部业务员</option>
+        </select>
+        <div style="margin-left:auto;font-size:12px;color:var(--light)" id="closed-count"></div>
+      </div>
+      <div id="closed-list-container"></div>
+    </div>
+
+    <!-- ══ ORDERS ══ -->
+    <div id="view-orders" class="view">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+        <input type="text" class="search-input" id="order-search" placeholder="🔍 搜索订单/客户..." oninput="renderOrders()">
+        <select class="meta-select" id="filter-order-stage" onchange="renderOrders()">
+          <option value="">全部状态</option>
+          <option value="confirmed">下单确认</option>
+          <option value="production">生产中</option>
+          <option value="inspection">质检/备货</option>
+          <option value="customs">报关出口</option>
+          <option value="transit">船期/在途</option>
+          <option value="arrived">到港清关</option>
+          <option value="completed">完成收款</option>
+        </select>
+        <select class="meta-select" id="filter-order-employee" onchange="renderOrders()">
+          <option value="">全部业务员</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="openNewOrderModal()">＋ 新建订单</button>
+        <div style="margin-left:auto;font-size:12px;color:var(--light)" id="order-count"></div>
+      </div>
+      <div id="orders-container"></div>
+    </div>
+
+    <!-- ══ PARSE ══ -->
+    <div id="view-parse" class="view">
+      <div class="card">
+        <div class="card-title">📋 粘贴员工日报 · AI 智能解析</div>
+        <div class="parse-meta">
+          <div>
+            <label style="font-size:11px;color:var(--light);margin-right:5px;">业务员</label>
+            <select id="parse-employee" class="meta-select"><option value="">-- 选择业务员 --</option></select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--light);margin-right:5px;">日期</label>
+            <input type="date" id="parse-date" class="meta-input" style="width:140px">
+          </div>
+          <button class="btn btn-primary" id="parse-btn" onclick="parseReport()">✨ AI 解析</button>
+          <div id="parse-status" style="font-size:12px;color:var(--light);"></div>
+        </div>
+        <div class="parse-layout">
+          <div>
+            <div style="font-size:11px;color:var(--light);margin-bottom:5px;">粘贴日报内容</div>
+            <textarea id="report-text" class="report-input" placeholder="在此粘贴员工日报全文..."></textarea>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--light);margin-bottom:5px;">解析结果（可编辑后保存）</div>
+            <div id="parse-result" class="parse-result-area">
+              <div class="empty-state" style="padding:40px 10px"><div class="empty-icon">🤖</div><p>AI解析结果将在这里显示</p></div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-primary" id="save-parsed-btn" onclick="saveParsedCustomers()" disabled>💾 保存到系统</button>
+          <span id="save-info" style="font-size:12px;color:var(--light)"></span>
+        </div>
+      </div>
+      <div id="api-key-warning" class="card" style="border-color:#FFCDD2;background:#FFF5F5;display:none">
+        <div class="card-title" style="color:var(--hot)">⚠️ 需要配置 Claude API Key</div>
+        <p style="font-size:13px;color:var(--mid)">请前往 <strong>设置</strong> 页面配置 Anthropic API Key。</p>
+      </div>
+    </div>
+
+    <!-- ══ EXHIBITION ══ -->
+    <div id="view-exhibition" class="view">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">🏛️ 展会跟踪</div>
+        <div id="exhibition-stats" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px"></div>
+      </div>
+      <div id="exhibition-list"></div>
+    </div>
+
+    <!-- ══ WEEKLY REPORT ══ -->
+    <div id="view-weekly" class="view">
+      <div class="card" style="max-width:720px">
+        <div class="card-title">📝 周报生成</div>
+        <p style="font-size:12px;color:var(--light);margin-bottom:14px">基于系统数据，AI 自动汇总客户情况，生成可直接发送给领导的周报。</p>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+          <div>
+            <label style="font-size:11px;color:var(--light);margin-right:6px">统计范围</label>
+            <select id="weekly-range" class="meta-select"><option value="7">最近 7 天</option><option value="14">最近 14 天</option><option value="30">最近 30 天</option></select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--light);margin-right:6px">导出格式</label>
+            <select id="weekly-format" class="meta-select"><option value="html">HTML 文件</option><option value="txt">TXT 文件</option></select>
+          </div>
+          <button class="btn btn-primary" id="weekly-gen-btn" onclick="generateWeeklyReport()">✨ 生成周报</button>
+          <div id="weekly-status" style="font-size:12px;color:var(--light)"></div>
+        </div>
+        <div id="weekly-preview-stats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+        <div id="weekly-result-area" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:12px;font-weight:bold;color:var(--dark)">生成结果预览</span>
+            <button class="btn btn-primary btn-sm" onclick="downloadWeeklyReport()">⬇️ 下载周报</button>
+          </div>
+          <div id="weekly-result-content" style="background:#FAFAFA;border:1.5px solid var(--border);border-radius:8px;padding:16px;font-size:13px;line-height:1.8;max-height:480px;overflow-y:auto;white-space:pre-wrap;font-family:'PingFang SC','Microsoft YaHei',sans-serif"></div>
+        </div>
+        <div id="weekly-api-warning" style="display:none;margin-top:12px;padding:10px 14px;background:#FFF5F5;border:1px solid #FFCDD2;border-radius:7px;font-size:13px;color:var(--hot)">⚠️ 需要先在 <strong>设置</strong> 页面配置 Claude API Key。</div>
+      </div>
+    </div>
+
+    <!-- ══ SETTINGS ══ -->
+    <div id="view-settings" class="view">
+      <div class="card" style="max-width:560px">
+        <div class="card-title">🔑 Claude API Key</div>
+        <div class="settings-section">
+          <p style="font-size:12px;color:var(--mid);margin-bottom:10px">用于 AI 解析日报功能。Key 仅保存在本地浏览器，不会上传。</p>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="password" id="api-key-input" class="meta-input" style="flex:1;max-width:380px" placeholder="sk-ant-api03-...">
+            <button class="btn btn-primary btn-sm" onclick="saveApiKey()">保存</button>
+            <button class="btn btn-secondary btn-sm" onclick="testApiKey()">测试</button>
+          </div>
+          <div id="api-key-status" style="margin-top:6px;font-size:12px;"></div>
+        </div>
+      </div>
+      <div class="card" style="max-width:560px">
+        <div class="card-title">👥 业务员管理</div>
+        <div class="settings-section">
+          <div class="tag-list" id="employee-tag-list"></div>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <input type="text" id="new-employee-input" class="meta-input" placeholder="新增业务员姓名" style="flex:1;max-width:220px" onkeydown="if(event.key==='Enter')addEmployee()">
+            <button class="btn btn-primary btn-sm" onclick="addEmployee()">添加</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="max-width:560px">
+        <div class="card-title">📊 数据管理</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary" onclick="exportData()">💾 导出 JSON 备份</button>
+          <button class="btn btn-secondary" onclick="importData()">📂 导入 JSON 备份</button>
+          <button class="btn btn-danger" onclick="clearAllData()">🗑️ 清空所有数据</button>
+        </div>
+        <p style="font-size:11px;color:var(--light);margin-top:10px">数据存储在本地浏览器 (localStorage)，换设备需导出备份后导入。</p>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ══════════════════ CUSTOMER DETAIL MODAL ══════════════════ -->
+<div id="modal-overlay">
+  <div id="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <h2 id="modal-customer-name">客户详情</h2>
+        <div id="modal-customer-meta" style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Modal Tabs -->
+      <div class="modal-tabs">
+        <button class="modal-tab active" onclick="switchModalTab('info',this)">📋 基本信息</button>
+        <button class="modal-tab" onclick="switchModalTab('timeline',this)">📝 互动记录</button>
+        <button class="modal-tab" onclick="switchModalTab('samples',this)">🌲 样品记录</button>
+        <button class="modal-tab" onclick="switchModalTab('orders_tab',this)">🏆 订单记录</button>
+      </div>
+
+      <!-- Tab: Basic Info -->
+      <div id="modal-tab-info" class="modal-tab-pane active">
+        <div id="modal-fields" class="field-grid"></div>
+        <div id="modal-nextaction" style="margin-bottom:12px;font-size:13px;"></div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
+          <label style="font-size:12px;color:var(--light)">热度</label>
+          <select class="meta-select" id="modal-heat-select" style="font-size:12px;padding:4px 8px" onchange="updateHeat()">
+            <option value="hot">🔥 Hot</option>
+            <option value="warm">♨️ Warm</option>
+            <option value="cool">🌱 Cool</option>
+            <option value="cold">❄️ Cold</option>
+            <option value="closed">🏆 成交</option>
+          </select>
+          <label style="font-size:12px;color:var(--light);margin-left:8px">评级</label>
+          <select class="meta-select" id="modal-grade-select" style="font-size:12px;padding:4px 8px" onchange="updateGrade()">
+            <option value="">—</option>
+            <option value="A Plus">A+</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+          </select>
+          <label style="font-size:12px;color:var(--light);margin-left:8px">展会</label>
+          <select class="meta-select" id="modal-exhib-select" style="font-size:12px;padding:4px 8px" onchange="updateExhibition()">
+            <option value="">未知</option>
+            <option value="attending">参展</option>
+            <option value="interested">感兴趣</option>
+            <option value="not">不参加</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
+          <label style="font-size:12px;color:var(--light)">跟进日期</label>
+          <input type="date" class="meta-input" id="modal-reminder-date" style="font-size:12px;padding:4px 8px">
+          <label style="font-size:12px;color:var(--light);margin-left:8px">周期</label>
+          <input type="number" class="meta-input" id="modal-follow-cycle" min="1" max="365" placeholder="天" style="font-size:12px;padding:4px 8px;width:68px">
+          <span style="font-size:11px;color:var(--light)">天/次</span>
+          <button class="btn btn-secondary btn-sm" onclick="updateReminder()">更新</button>
+        </div>
+        <div style="margin-bottom:8px">
+          <div style="font-size:11px;color:var(--light);margin-bottom:5px">手动备注</div>
+          <textarea id="modal-note-input" style="width:100%;height:60px;border:1.5px solid var(--border);border-radius:6px;padding:7px;font-size:12px;font-family:inherit;resize:vertical" placeholder="添加手动备注..."></textarea>
+          <button class="btn btn-secondary btn-sm" style="margin-top:5px" onclick="addManualNote()">+ 保存备注</button>
+        </div>
+      </div>
+
+      <!-- Tab: Timeline -->
+      <div id="modal-tab-timeline" class="modal-tab-pane">
+        <!-- Quick add -->
+        <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:bold;color:var(--dark);margin-bottom:8px">＋ 添加跟进记录</div>
+          <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;margin-bottom:8px">
+            <div class="field-item">
+              <label>跟进日期</label>
+              <input class="meta-input" id="tl-add-date" type="date" style="width:100%">
+            </div>
+            <div class="field-item">
+              <label>下一步行动</label>
+              <input class="meta-input" id="tl-add-next" style="width:100%" placeholder="如：发报价单 / 等客户回复">
+            </div>
+          </div>
+          <div class="field-item" style="margin-bottom:8px">
+            <label>跟进内容</label>
+            <textarea id="tl-add-summary" style="width:100%;height:72px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:12px;font-family:inherit;resize:vertical" placeholder="今天跟进了什么，客户反馈如何..."></textarea>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="addInteractionRecord()">💾 保存跟进</button>
+        </div>
+
+        <!-- Bulk import -->
+        <div id="timeline-bulk-area" style="display:none;margin-bottom:12px;background:#FFF8F0;border:1px solid #FFE0B2;border-radius:8px;padding:12px">
+          <div style="font-size:12px;font-weight:bold;color:var(--dark);margin-bottom:6px">📥 批量补充历史互动记录</div>
+          <div style="font-size:11px;color:var(--light);margin-bottom:8px">将过往跟进内容粘贴到下方，每段记录用日期开头（如"2025-03-01 今天联系了..."），系统会自动按日期拆分保存。</div>
+          <textarea id="timeline-bulk-input" style="width:100%;height:100px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:12px;font-family:inherit;resize:vertical" placeholder="示例：&#10;2025-01-10 拜访客户，了解需求，对方对HPL很感兴趣&#10;2025-02-03 发报价单，等待回复&#10;2025-03-15 客户回复，希望降价10%"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+            <input type="date" class="meta-input" id="timeline-bulk-default-date" style="font-size:12px;padding:4px 8px" title="若文字中没有日期则使用此日期">
+            <span style="font-size:11px;color:var(--light)">无日期时的默认日期</span>
+            <button class="btn btn-primary btn-sm" onclick="saveBulkTimeline()">💾 批量导入</button>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('timeline-bulk-area').style.display='none'">取消</button>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-size:11px;color:var(--light)" id="timeline-count"></span>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('timeline-bulk-area').style.display=document.getElementById('timeline-bulk-area').style.display==='none'?'':'none'">📥 批量补充历史记录</button>
+        </div>
+        <div id="modal-timeline" class="timeline"></div>
+      </div>
+
+      <!-- Tab: Samples -->
+      <div id="modal-tab-samples" class="modal-tab-pane">
+        <!-- Add sample form -->
+        <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:14px">
+          <div style="font-size:12px;font-weight:bold;color:var(--dark);margin-bottom:10px">＋ 添加样品记录</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-bottom:8px">
+            <div class="field-item"><label>寄出日期</label><input class="meta-input" id="sample-date" type="date" style="width:100%"></div>
+            <div class="field-item"><label>快递单号</label><input class="meta-input" id="sample-tracking" style="width:100%" placeholder="如：SF1234567890"></div>
+            <div class="field-item" style="grid-column:1/-1"><label>样品内容</label><input class="meta-input" id="sample-content" style="width:100%" placeholder="如：大样册1本 + HPL样品3片 + Compact 2块"></div>
+            <div class="field-item"><label>状态</label>
+              <select class="meta-select" id="sample-status" style="width:100%">
+                <option value="已寄出">📦 已寄出</option>
+                <option value="已签收">✅ 已签收</option>
+                <option value="客户已反馈">💬 客户已反馈</option>
+                <option value="待寄出">⏳ 待寄出</option>
+              </select>
+            </div>
+            <div class="field-item"><label>备注</label><input class="meta-input" id="sample-note" style="width:100%" placeholder="如：客户对石纹样品满意"></div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="addSampleRecord()">💾 保存样品记录</button>
+        </div>
+        <!-- Sample list -->
+        <div id="modal-samples-list"></div>
+      </div>
+
+      <!-- Tab: Orders -->
+      <div id="modal-tab-orders_tab" class="modal-tab-pane">
+        <div id="modal-orders-list"></div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="openNewOrderModal(modalCustomerId)">＋ 新建订单</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="deleteCurrentCustomer()">🗑️ 删除客户</button>
+      <button class="btn btn-secondary btn-sm" onclick="closeModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ ORDER MODAL ══════════════════ -->
+<div id="order-modal-overlay">
+  <div id="order-modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <h2 id="order-modal-title">新建订单</h2>
+        <div id="order-modal-subtitle" style="font-size:12px;color:var(--light);margin-top:3px"></div>
+      </div>
+      <button class="modal-close" onclick="closeOrderModal()">✕</button>
+    </div>
+    <div class="modal-body" id="order-modal-body"></div>
+    <div class="modal-footer" id="order-modal-footer"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+<script type="module">
+// ════════════════════════════════════════════════════════════
+//  FIREBASE CONFIG — 将下方配置替换为你自己的
+// ════════════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCKcFO8of2OoMj7CeJg6bozZa1k4aekwbU",
+  authDomain: "remica-crm.firebaseapp.com",
+  projectId: "remica-crm",
+  storageBucket: "remica-crm.firebasestorage.app",
+  messagingSenderId: "819323345894",
+  appId: "1:819323345894:web:fa53e306799f6b925f5427"
+};
+
+const ADMIN_EMAIL = 'amandadong99@gmail.com';
+const BACKUP_LAST_KEY = 'qt_ci_last_backup';
+const BACKUP_INTERVAL_DAYS = 10;
+
+// ════════════════════════════════════════════════════════════
+//  FIREBASE INIT
+// ════════════════════════════════════════════════════════════
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut as fbSignOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, onSnapshot, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const app      = initializeApp(FIREBASE_CONFIG);
+const auth     = getAuth(app);
+const firestore = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+let currentUser = null;
+let isAdmin = false;
+
+// ── Auth functions ──
+window.signInWithGoogle = async function() {
+  document.getElementById('login-error').textContent = '';
+  try { await signInWithPopup(auth, provider); }
+  catch(e) { document.getElementById('login-error').textContent = '登录失败：' + e.message; }
+};
+window.signOut = async function() {
+  if (!confirm('确定退出登录吗？')) return;
+  await fbSignOut(auth);
+};
+
+// ════════════════════════════════════════════════════════════
+//  DATA MODEL — Firestore replace localStorage
+// ════════════════════════════════════════════════════════════
+async function loadData() {
+  const cusQuery = isAdmin
+    ? collection(firestore, 'customers')
+    : query(collection(firestore, 'customers'), where('ownerEmail', '==', currentUser.email));
+  const ordQuery = isAdmin
+    ? collection(firestore, 'orders')
+    : query(collection(firestore, 'orders'), where('ownerEmail', '==', currentUser.email));
+
+  const [cusSnap, ordSnap] = await Promise.all([getDocs(cusQuery), getDocs(ordQuery)]);
+  const customers = cusSnap.docs.map(d => ({ ...d.data(), id: d.id }));
+  const orders    = ordSnap.docs.map(d => ({ ...d.data(), id: d.id }));
+  return { customers, orders };
+}
+
+async function saveData(data) {
+  // Save all customers and orders in batch
+  const batch = writeBatch(firestore);
+  data.customers.forEach(c => {
+    const ref = doc(firestore, 'customers', c.id);
+    batch.set(ref, { ...c, ownerEmail: c.ownerEmail || currentUser.email });
+  });
+  data.orders.forEach(o => {
+    const ref = doc(firestore, 'orders', o.id);
+    batch.set(ref, { ...o, ownerEmail: o.ownerEmail || currentUser.email });
+  });
+  await batch.commit();
+}
+
+async function saveCustomer(c) {
+  await setDoc(doc(firestore, 'customers', c.id), { ...c, ownerEmail: c.ownerEmail || currentUser.email });
+}
+async function saveOrder(o) {
+  await setDoc(doc(firestore, 'orders', o.id), { ...o, ownerEmail: o.ownerEmail || currentUser.email });
+}
+async function deleteCustomerDoc(id) { await deleteDoc(doc(firestore, 'customers', id)); }
+async function deleteOrderDoc(id)    { await deleteDoc(doc(firestore, 'orders', id)); }
+
+function loadSettings() {
+  try { const s = localStorage.getItem('qt_ci_settings_v1'); return s ? JSON.parse(s) : { apiKey:'', employees:['Amanda','Judy','Mia'] }; }
+  catch(e) { return { apiKey:'', employees:['Amanda','Judy','Mia'] }; }
+}
+function saveSettings(s) { localStorage.setItem('qt_ci_settings_v1', JSON.stringify(s)); }
+
+// ════════════════════════════════════════════════════════════
+//  GLOBAL STATE
+// ════════════════════════════════════════════════════════════
+let db = { customers: [], orders: [] };
+let settings = loadSettings();
+let currentView = 'dashboard';
+let modalCustomerId = null;
+let editingOrderId = null;
+let parsedCustomers = [];
+let reminderTab = 'overdue';
+let dashTab = 'heat';
+let weeklyReportText = '';
+let weeklyReportHtml = '';
+
+// ════════════════════════════════════════════════════════════
+//  INIT — Auth-gated
+// ════════════════════════════════════════════════════════════
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    isAdmin = (user.email === ADMIN_EMAIL);
+
+    // Update sidebar user info
+    document.getElementById('sidebar-user-name').textContent = user.displayName || user.email;
+    document.getElementById('sidebar-user-email').textContent = user.email + (isAdmin ? ' · 管理员' : '');
+
+    // Hide login, show loading, then load data
+    document.getElementById('login-screen').classList.remove('show');
+    document.getElementById('loading-screen').style.display = 'flex';
+
+    try {
+      db = await loadData();
+      if (!db.orders) db.orders = [];
+
+      // Migrate: operational → closed
+      let migrated = 0;
+      db.customers.forEach(c => { if (c.heat_level === 'operational') { c.heat_level = 'closed'; migrated++; } });
+      if (migrated > 0) await saveData(db);
+
+      document.getElementById('loading-screen').style.display = 'none';
+      document.getElementById('parse-date').value = today();
+      renderAll();
+      checkApiKey();
+      initBackupReminder();
+      updateWeeklyPreviewStats();
+    } catch(e) {
+      document.getElementById('loading-screen').style.display = 'none';
+      alert('数据加载失败：' + e.message);
+    }
+  } else {
+    currentUser = null;
+    isAdmin = false;
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('login-screen').classList.add('show');
+  }
+});
+
+// ── saveData compatibility: sync call → async fire-and-forget ──
+// All existing saveData(db) calls remain unchanged; this wrapper
+// serialises writes to Firestore without blocking the UI.
+let _saveQueue = Promise.resolve();
+function saveData(data) {
+  _saveQueue = _saveQueue.then(() => saveDataAsync(data)).catch(e => console.error('Save error:', e));
+}
+async function saveDataAsync(data) {
+  const batch = writeBatch(firestore);
+  data.customers.forEach(c => {
+    const ref = doc(firestore, 'customers', c.id);
+    batch.set(ref, { ...c, ownerEmail: c.ownerEmail || currentUser?.email || '' });
+  });
+  data.orders.forEach(o => {
+    const ref = doc(firestore, 'orders', o.id);
+    batch.set(ref, { ...o, ownerEmail: o.ownerEmail || currentUser?.email || '' });
+  });
+  await batch.commit();
+}
+
+function renderAll() {
+  renderDashboard();
+  renderMgmtDashboard();
+  renderCustomerFilters();
+  renderCustomers();
+  renderClosed();
+  renderReminders();
+  renderExhibition();
+  renderOrders();
+  renderSettings();
+  updateReminderBadge();
+  updateOrderBadge();
+}
+
+function today() { return new Date().toISOString().split('T')[0]; }
+function formatDate(s) {
+  if (!s) return '—';
+  const d = new Date(s); if (isNaN(d)) return s;
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function daysDiff(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr), now = new Date();
+  now.setHours(0,0,0,0); d.setHours(0,0,0,0);
+  return Math.round((d - now) / 86400000);
+}
+function getPastDateStr(days) { const d = new Date(); d.setDate(d.getDate()-days); return d.toISOString().split('T')[0]; }
+
+// ════════════════════════════════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════════════════════════════════
+const VIEW_TITLES = {
+  dashboard:'热度看板', mgmt:'管理看板', reminders:'跟进提醒',
+  customers:'客户列表', closed:'成交客户', orders:'订单管理',
+  parse:'解析日报', exhibition:'展会管理', weekly:'周报生成', settings:'设置'
+};
+function switchView(v) {
+  currentView = v;
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.getAttribute('onclick') === `switchView('${v}')`);
+  });
+  document.getElementById('topbar-title').textContent = VIEW_TITLES[v] || v;
+  if (v==='customers') renderCustomers();
+  if (v==='closed')    renderClosed();
+  if (v==='reminders') renderReminders();
+  if (v==='exhibition') renderExhibition();
+  if (v==='weekly')    updateWeeklyPreviewStats();
+  if (v==='orders')    renderOrders();
+  if (v==='mgmt')      renderMgmtDashboard();
+  if (v==='settings')  renderSettings();
+}
+
+// ════════════════════════════════════════════════════════════
+//  HEAT & GRADE HELPERS
+// ════════════════════════════════════════════════════════════
+const HEAT_LABELS = { hot:'🔥 Hot', warm:'♨️ Warm', cool:'🌱 Cool', cold:'❄️ Cold', closed:'🏆 成交' };
+function heatBadge(h) { return `<span class="heat-badge heat-${h||'cold'}">${HEAT_LABELS[h]||h||'未知'}</span>`; }
+const GRADE_LABELS = { 'A Plus':'A+', 'A':'A', 'B':'B', 'C':'C', 'D':'D' };
+function gradeBadge(g) {
+  if (!g) return '';
+  const key = g.toLowerCase().replace(' ','').replace('+','plus');
+  const cls = g==='A Plus'?'aplus': g.toLowerCase();
+  return `<span class="grade-badge grade-${cls}">${GRADE_LABELS[g]||g}</span>`;
+}
+
+// ════════════════════════════════════════════════════════════
+//  DASHBOARD TAB
+// ════════════════════════════════════════════════════════════
+function switchDashTab(tab, el) {
+  dashTab = tab;
+  document.querySelectorAll('#view-dashboard .tab-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('heat-board').style.display      = tab==='heat' ? '' : 'none';
+  document.getElementById('employee-kanban').style.display = tab==='employee' ? 'flex' : 'none';
+  if (tab==='employee') renderEmployeeKanban();
+  else renderHeatBoard();
+}
+
+// ════════════════════════════════════════════════════════════
+//  DONUT CHART (pure SVG)
+// ════════════════════════════════════════════════════════════
+function buildDonut(segments, total, centerLabel, size=90) {
+  if (!total) return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#F0F0F0;flex-shrink:0"></div>`;
+  const r = 38, cx = 50, cy = 50, stroke = 14;
+  const circ = 2 * Math.PI * r;
+  let offset = 0;
+  // Start from top (-90deg = -circ/4)
+  let dashOffset = circ * 0.25;
+
+  const paths = segments.map(s => {
+    const pct   = s.count / total;
+    const dash  = pct * circ;
+    const gap   = circ - dash;
+    const el = `<circle
+      cx="${cx}" cy="${cy}" r="${r}"
+      fill="none"
+      stroke="${s.color}"
+      stroke-width="${stroke}"
+      stroke-dasharray="${dash.toFixed(2)} ${gap.toFixed(2)}"
+      stroke-dashoffset="${dashOffset.toFixed(2)}"
+      stroke-linecap="butt"
+    />`;
+    dashOffset -= dash;
+    return el;
+  }).join('');
+
+  // Gap rings between segments
+  const gaps = segments.map((s, i) => {
+    const pct  = s.count / total;
+    const dash = pct * circ;
+    return dash;
+  });
+
+  const scale = size / 100;
+  return `
+    <div style="flex-shrink:0;position:relative;width:${size}px;height:${size}px">
+      <svg viewBox="0 0 100 100" width="${size}" height="${size}" style="transform:rotate(-90deg)">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#F0F0F0" stroke-width="${stroke}"/>
+        ${paths}
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+        <div style="font-size:${Math.round(16*scale)}px;font-weight:bold;color:var(--dark);line-height:1">${total}</div>
+        <div style="font-size:${Math.round(9*scale)}px;color:var(--light);margin-top:2px;line-height:1.2">${centerLabel}</div>
+      </div>
+    </div>`;
+}
+
+// ════════════════════════════════════════════════════════════
+//  DASHBOARD
+// ════════════════════════════════════════════════════════════
+function renderDashboard() {
+  const customers = db.customers;
+  const counts = { hot:0, warm:0, cool:0, cold:0, closed:0 };
+  customers.forEach(c => {
+    const h = c.heat_level === 'operational' ? 'closed' : c.heat_level;
+    if (counts[h] !== undefined) counts[h]++;
+  });
+  const total = customers.length;
+
+  // Donut segments
+  const segments = [
+    { key:'hot',    color:'#E53935', label:'🔥 Hot',  count: counts.hot },
+    { key:'warm',   color:'#FB8C00', label:'♨️ Warm', count: counts.warm },
+    { key:'cool',   color:'#43A047', label:'🌱 Cool', count: counts.cool },
+    { key:'cold',   color:'#1E88E5', label:'❄️ Cold', count: counts.cold },
+    { key:'closed', color:'#7B1FA2', label:'🏆 成交', count: counts.closed },
+  ].filter(s => s.count > 0);
+
+  document.getElementById('stat-row').innerHTML = `
+    <div style="display:flex;align-items:center;gap:20px;background:var(--white);border-radius:10px;border:1px solid var(--border);padding:16px 20px;grid-column:1/-1">
+      ${buildDonut(segments, total, '客户热度分布', 90)}
+      <div style="display:flex;flex-wrap:wrap;gap:8px 20px;flex:1">
+        ${segments.map(s=>`
+          <div style="display:flex;align-items:center;gap:6px;min-width:100px">
+            <span style="width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0"></span>
+            <span style="font-size:12px;color:var(--mid)">${s.label}</span>
+            <span style="font-size:13px;font-weight:bold;color:var(--dark);margin-left:4px">${s.count}</span>
+            <span style="font-size:11px;color:var(--light)">(${total?Math.round(s.count/total*100):0}%)</span>
+          </div>`).join('')}
+        <div style="display:flex;align-items:center;gap:6px;min-width:100px">
+          <span style="width:10px;height:10px;border-radius:50%;background:var(--orange);flex-shrink:0"></span>
+          <span style="font-size:12px;color:var(--mid)">全部</span>
+          <span style="font-size:13px;font-weight:bold;color:var(--orange);margin-left:4px">${total}</span>
+        </div>
+      </div>
+    </div>
+  `;
+  renderPrioritySections();
+  if (dashTab==='heat') renderHeatBoard(); else renderEmployeeKanban();
+}
+
+function togglePriority(type) {
+  const list  = document.getElementById(`priority-${type}-list`);
+  const arrow = document.getElementById(`priority-${type}-arrow`);
+  const open  = list.style.display === 'none';
+  list.style.display  = open ? '' : 'none';
+  arrow.textContent   = open ? '▼ 收起' : '▶ 点击展开';
+}
+
+function toggleHeatSection(key) {
+  const list  = document.getElementById(`heat-section-list-${key}`);
+  const arrow = document.getElementById(`heat-section-arrow-${key}`);
+  if (!list) return;
+  const open = list.style.display === 'none';
+  list.style.display = open ? '' : 'none';
+  arrow.textContent  = open ? '▼ 收起' : '▶ 点击展开';
+}
+
+function renderPrioritySections() {
+  const t = today();
+  // Sort overdue: most overdue (largest negative diff) first
+  const overdue   = db.customers.filter(c => c.reminder_date && c.reminder_date < t)
+    .sort((a,b) => a.reminder_date.localeCompare(b.reminder_date)); // oldest date first = most overdue
+  const todayList = db.customers.filter(c => c.reminder_date && c.reminder_date === t);
+
+  // Overdue section
+  const os = document.getElementById('priority-overdue-section');
+  os.style.display = overdue.length ? '' : 'none';
+  document.getElementById('priority-overdue-count').textContent = overdue.length ? `(${overdue.length})` : '';
+  const ol = document.getElementById('priority-overdue-list');
+  ol.style.display = 'none'; // collapsed by default
+  ol.innerHTML = '';
+  overdue.forEach(c => ol.appendChild(buildPriorityRow(c, 'overdue')));
+
+  // Today section
+  const ts = document.getElementById('priority-today-section');
+  ts.style.display = todayList.length ? '' : 'none';
+  document.getElementById('priority-today-count').textContent = todayList.length ? `(${todayList.length})` : '';
+  const tl = document.getElementById('priority-today-list');
+  tl.style.display = 'none'; // collapsed by default
+  tl.innerHTML = '';
+  todayList.forEach(c => tl.appendChild(buildPriorityRow(c, 'today')));
+}
+
+function buildPriorityRow(c, type) {
+  const div = document.createElement('div');
+  div.className = `priority-row ${type}`;
+  const diff = daysDiff(c.reminder_date);
+  div.innerHTML = `
+    <div class="pr-days ${type}">${type==='overdue'?`逾期${-diff}天`:'今天'}</div>
+    ${heatBadge(c.heat_level)}${gradeBadge(c.grade)}
+    <div class="pr-name">${c.name}</div>
+    <div class="pr-emp">${c.employee||'—'}</div>
+    <div class="pr-action">${c.next_action?'→ '+c.next_action.substring(0,50)+(c.next_action.length>50?'…':''):'—'}</div>
+  `;
+  div.onclick = () => openCustomer(c.id);
+  return div;
+}
+
+function renderHeatBoard() {
+  const board = document.getElementById('heat-board');
+  board.innerHTML = '';
+  const sections = [
+    { key:'hot',    label:'🔥 Hot — 紧急跟进',   cls:'hs-hot' },
+    { key:'warm',   label:'♨️ Warm — 积极推进',  cls:'hs-warm' },
+    { key:'cool',   label:'🌱 Cool — 待开发',    cls:'hs-cool' },
+    { key:'cold',   label:'❄️ Cold — 沉默客户',  cls:'hs-cold' },
+    { key:'closed', label:'🏆 成交 — 已成交客户', cls:'hs-closed' },
+  ];
+  sections.forEach(sec => {
+    const list = db.customers.filter(c=>c.heat_level===sec.key).sort((a,b)=>(b.updated_at||'').localeCompare(a.updated_at||''));
+    if (!list.length && sec.key!=='hot') return;
+    const secId = `heat-section-list-${sec.key}`;
+    const arrowId = `heat-section-arrow-${sec.key}`;
+    // Hot starts expanded, others collapsed
+    const defaultOpen = sec.key === 'hot';
+    const sec_div = document.createElement('div');
+    sec_div.className = 'heat-section';
+    sec_div.innerHTML = `
+      <div class="heat-section-title ${sec.cls}" onclick="toggleHeatSection('${sec.key}')" style="cursor:pointer;user-select:none;justify-content:space-between">
+        <span>${sec.label} <span style="font-weight:normal;font-size:11px">(${list.length})</span></span>
+        <span id="${arrowId}" style="font-size:11px;font-weight:normal">${defaultOpen ? '▼ 收起' : '▶ 点击展开'}</span>
+      </div>
+      <div id="${secId}" style="display:${defaultOpen ? '' : 'none'}"></div>
+    `;
+    const listEl = sec_div.querySelector(`#${secId}`);
+    if (!list.length) {
+      listEl.innerHTML = `<div style="color:var(--light);font-size:12px;padding:8px 12px">暂无客户</div>`;
+    } else {
+      list.forEach(c => listEl.appendChild(buildCustomerRow(c)));
+    }
+    board.appendChild(sec_div);
+  });
+}
+
+function renderEmployeeKanban() {
+  const kanban = document.getElementById('employee-kanban');
+  kanban.innerHTML = '';
+  const emps = settings.employees && settings.employees.length ? settings.employees : [...new Set(db.customers.map(c=>c.employee).filter(Boolean))];
+  const unassigned = db.customers.filter(c => !c.employee || !emps.includes(c.employee));
+  const allCols = [...emps];
+  if (unassigned.length) allCols.push('__unassigned__');
+
+  allCols.forEach(emp => {
+    const isU = emp==='__unassigned__';
+    const list = isU ? unassigned : db.customers.filter(c=>c.employee===emp)
+      .sort((a,b)=>{ const o={hot:0,warm:1,cool:2,cold:3,closed:4}; return (o[a.heat_level]||2)-(o[b.heat_level]||2); });
+
+    // Count by type
+    const cts = { hot:0, warm:0, cool:0, cold:0, closed:0 };
+    list.forEach(c=>{ if(cts[c.heat_level]!==undefined) cts[c.heat_level]++; });
+
+    const col = document.createElement('div');
+    col.className = 'kanban-col';
+    col.innerHTML = `
+      <div class="kanban-col-header">
+        <span class="emp-name">${isU?'未分配':emp}</span>
+        <span class="emp-count">${list.length}</span>
+      </div>
+      <div class="kanban-col-stats">
+        ${cts.hot?`<span class="kanban-stat-pill heat-hot">${cts.hot} Hot</span>`:''}
+        ${cts.warm?`<span class="kanban-stat-pill heat-warm">${cts.warm} Warm</span>`:''}
+        ${cts.cool?`<span class="kanban-stat-pill heat-cool">${cts.cool} Cool</span>`:''}
+        ${cts.cold?`<span class="kanban-stat-pill heat-cold">${cts.cold} Cold</span>`:''}
+        ${cts.closed?`<span class="kanban-stat-pill heat-closed">${cts.closed} 成交</span>`:''}
+      </div>
+      <div class="kanban-cards"></div>
+    `;
+    const cardsEl = col.querySelector('.kanban-cards');
+    if (!list.length) cardsEl.innerHTML = '<div class="kanban-empty">暂无客户</div>';
+    else list.forEach(c => cardsEl.appendChild(buildKanbanCard(c)));
+    kanban.appendChild(col);
+  });
+}
+
+function buildKanbanCard(c) {
+  const card = document.createElement('div');
+  card.className = 'kanban-card';
+  const rd = c.reminder_date ? daysDiff(c.reminder_date) : null;
+  let remHtml = '';
+  if (c.reminder_date) {
+    const cls = rd<0?'overdue':rd===0?'today':'';
+    const lbl = rd<0?`逾期${-rd}天`:rd===0?'今天跟进':`${rd}天后`;
+    remHtml = `<div><span class="kanban-card-reminder ${cls}">⏰ ${lbl}</span></div>`;
+  }
+  const cycleHtml = c.follow_cycle ? `<span style="font-size:10px;color:var(--light);margin-left:4px">↻${c.follow_cycle}天</span>` : '';
+  card.innerHTML = `
+    <div class="kanban-heat-bar ${c.heat_level||'cold'}"></div>
+    <div class="kanban-card-name">${c.name}${cycleHtml}</div>
+    <div class="kanban-card-meta">${heatBadge(c.heat_level)}${gradeBadge(c.grade)}<span style="font-size:11px;color:var(--light)">${c.country||''}</span></div>
+    ${c.next_action?`<div class="kanban-card-action">→ ${c.next_action.substring(0,60)}${c.next_action.length>60?'…':''}</div>`:''}
+    ${remHtml}
+  `;
+  card.onclick = () => openCustomer(c.id);
+  return card;
+}
+
+function buildCustomerRow(c) {
+  const div = document.createElement('div');
+  div.className = 'customer-row';
+  const rd = c.reminder_date ? daysDiff(c.reminder_date) : null;
+  let remHtml = '';
+  if (c.reminder_date) {
+    const cls = rd!==null&&rd<0?'cr-reminder overdue':'cr-reminder';
+    const label = rd===null?c.reminder_date:rd<0?`逾期${-rd}天`:rd===0?'今天':`${rd}天后`;
+    remHtml = `<span class="${cls}">⏰ ${label}</span>`;
+  }
+  const last = c.interactions&&c.interactions.length ? c.interactions[c.interactions.length-1].date : c.created_at;
+  div.innerHTML = `
+    <div style="min-width:140px;max-width:200px">
+      <div class="cr-name">${c.name}</div>
+      ${c.contact ? `<div style="font-size:11px;color:var(--light);margin-top:1px">👤 ${c.contact}</div>` : ''}
+    </div>
+    <div class="cr-country">${c.country||'—'}</div>
+    <div class="cr-type">${c.type||'—'}</div>
+    ${gradeBadge(c.grade)||'<span style="min-width:28px"></span>'}
+    <div class="cr-employee">${c.employee||'—'}</div>
+    <div class="cr-action">${c.next_action?'→ '+c.next_action.substring(0,40)+(c.next_action.length>40?'…':''):''}</div>
+    ${remHtml}
+    <div class="cr-last">${formatDate(last)}</div>
+  `;
+  div.onclick = () => openCustomer(c.id);
+  return div;
+}
+
+// ════════════════════════════════════════════════════════════
+//  MANAGEMENT DASHBOARD
+// ════════════════════════════════════════════════════════════
+function renderMgmtDashboard() {
+  const customers = db.customers;
+  const t = today();
+  const monthStart = t.substring(0,7) + '-01';
+  const newThisMonth = customers.filter(c => c.created_at >= monthStart);
+  const totalOrders = db.orders.length;
+  const activeOrders = db.orders.filter(o => o.stage !== 'completed').length;
+
+  // Grade counts (company-wide)
+  const gradeCounts = { 'A Plus':0, 'A':0, 'B':0, 'C':0, 'D':0, '未评级':0 };
+  customers.forEach(c => {
+    const g = c.grade || '未评级';
+    if (gradeCounts[g] !== undefined) gradeCounts[g]++;
+    else gradeCounts['未评级']++;
+  });
+
+  // Donut by grade
+  const gradeSegments = [
+    { color:'#FFD600', label:'A+', count: gradeCounts['A Plus'] },
+    { color:'#E53935', label:'A',  count: gradeCounts['A'] },
+    { color:'#FB8C00', label:'B',  count: gradeCounts['B'] },
+    { color:'#43A047', label:'C',  count: gradeCounts['C'] },
+    { color:'#90A4AE', label:'D',  count: gradeCounts['D'] },
+    { color:'#E0E0E0', label:'未评级', count: gradeCounts['未评级'] },
+  ].filter(s => s.count > 0);
+
+  const total = customers.length;
+
+  document.getElementById('mgmt-stat-row').innerHTML = `
+    <div style="background:var(--white);border-radius:10px;border:1px solid var(--border);padding:16px 20px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:bold;color:var(--dark);margin-bottom:14px">📊 客户评级分布（全公司）</div>
+      <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+        ${buildDonut(gradeSegments, total, '客户总数', 100)}
+        <div style="flex:1;min-width:260px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px">
+            ${gradeSegments.map(s => `
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:12px;height:12px;border-radius:3px;background:${s.color};flex-shrink:0"></span>
+                <span style="font-size:13px;color:var(--mid);min-width:36px">${s.label}</span>
+                <span style="font-size:20px;font-weight:bold;color:var(--dark)">${s.count}</span>
+                <span style="font-size:11px;color:var(--light)">${total ? Math.round(s.count/total*100) : 0}%</span>
+              </div>`).join('')}
+            <div style="display:flex;align-items:center;gap:8px;grid-column:1/-1;border-top:1px solid var(--border);padding-top:8px;margin-top:2px">
+              <span style="width:12px;height:12px;border-radius:3px;background:var(--orange);flex-shrink:0"></span>
+              <span style="font-size:13px;color:var(--mid);min-width:36px">合计</span>
+              <span style="font-size:20px;font-weight:bold;color:var(--orange)">${total}</span>
+              <span style="font-size:11px;color:var(--light)">本月新增 +${newThisMonth.length}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Country rank (total)
+  const countryMap = {};
+  customers.forEach(c => { const country = c.country||'未知'; countryMap[country] = (countryMap[country]||0)+1; });
+  const countryList = Object.entries(countryMap).sort((a,b)=>b[1]-a[1]);
+  const maxC = countryList[0]?.[1] || 1;
+  const rankEl = document.getElementById('mgmt-country-rank');
+  rankEl.innerHTML = '';
+  countryList.slice(0,15).forEach(([name,cnt],i) => {
+    rankEl.innerHTML += `
+      <div class="country-rank-item">
+        <div class="country-rank-num">${i+1}</div>
+        <div class="country-rank-name">${name}</div>
+        <div class="country-rank-bar-wrap"><div class="country-rank-bar" style="width:${Math.round(cnt/maxC*100)}%"></div></div>
+        <div class="country-rank-count">${cnt}</div>
+      </div>`;
+  });
+
+  // Country rank (new this month)
+  const newCountryMap = {};
+  newThisMonth.forEach(c => { const country = c.country||'未知'; newCountryMap[country] = (newCountryMap[country]||0)+1; });
+  const newCountryList = Object.entries(newCountryMap).sort((a,b)=>b[1]-a[1]);
+  const maxNC = newCountryList[0]?.[1] || 1;
+  const newRankEl = document.getElementById('mgmt-country-new-rank');
+  newRankEl.innerHTML = '';
+  if (!newCountryList.length) {
+    newRankEl.innerHTML = '<div style="color:var(--light);font-size:12px;padding:20px 0">本月暂无新增客户</div>';
+  } else {
+    newCountryList.slice(0,15).forEach(([name,cnt],i) => {
+      newRankEl.innerHTML += `
+        <div class="country-rank-item">
+          <div class="country-rank-num">${i+1}</div>
+          <div class="country-rank-name">${name}</div>
+          <div class="country-rank-bar-wrap"><div class="country-rank-bar" style="width:${Math.round(cnt/maxNC*100)}%;background:var(--cool)"></div></div>
+          <div class="country-rank-count">${cnt}</div>
+        </div>`;
+    });
+  }
+
+  // Employee grade stats
+  const empEl = document.getElementById('mgmt-employee-stats');
+  empEl.innerHTML = '';
+  const emps = settings.employees.length ? settings.employees : [...new Set(customers.map(c=>c.employee).filter(Boolean))];
+
+  // Header row
+  empEl.innerHTML = `
+    <div style="display:grid;grid-template-columns:100px 80px repeat(6,1fr);gap:0;border-bottom:2px solid var(--border);padding:6px 10px;font-size:11px;color:var(--light);font-weight:600">
+      <div>业务员</div>
+      <div style="text-align:center">总数</div>
+      <div style="text-align:center;color:#C8A000">A+</div>
+      <div style="text-align:center;color:#E53935">A</div>
+      <div style="text-align:center;color:#FB8C00">B</div>
+      <div style="text-align:center;color:#43A047">C</div>
+      <div style="text-align:center;color:#90A4AE">D</div>
+      <div style="text-align:center">本月新增</div>
+    </div>
+  `;
+
+  const GRADE_COLORS = { 'A Plus':'#FFD600','A':'#E53935','B':'#FB8C00','C':'#43A047','D':'#90A4AE','未评级':'#E0E0E0' };
+
+  emps.forEach(emp => {
+    const list = customers.filter(c => c.employee === emp);
+    if (!list.length) return;
+    const gc = { 'A Plus':0,'A':0,'B':0,'C':0,'D':0,'未评级':0 };
+    list.forEach(c => { const g = c.grade||'未评级'; if(gc[g]!==undefined) gc[g]++; else gc['未评级']++; });
+    const newM = list.filter(c => c.created_at >= monthStart).length;
+    const empTotal = list.length;
+
+    const empSegs = Object.entries(gc)
+      .filter(([,v])=>v>0)
+      .map(([k,v])=>({ color: GRADE_COLORS[k]||'#E0E0E0', label:k==='A Plus'?'A+':k, count:v }));
+
+    const row = document.createElement('div');
+    row.style.cssText = 'border-bottom:1px solid #F0F0F0;padding:10px 10px;display:grid;grid-template-columns:100px 80px repeat(6,1fr);gap:0;align-items:center';
+    row.innerHTML = `
+      <div style="font-weight:bold;font-size:13px">${emp}</div>
+      <div style="text-align:center">
+        <div style="font-size:20px;font-weight:bold;color:var(--orange)">${empTotal}</div>
+      </div>
+      <div style="text-align:center">
+        ${gc['A Plus'] ? `<div style="font-size:18px;font-weight:bold;color:#C8A000">${gc['A Plus']}</div><div style="font-size:10px;color:var(--light)">${Math.round(gc['A Plus']/empTotal*100)}%</div>` : '<div style="color:#ddd">—</div>'}
+      </div>
+      <div style="text-align:center">
+        ${gc['A'] ? `<div style="font-size:18px;font-weight:bold;color:#E53935">${gc['A']}</div><div style="font-size:10px;color:var(--light)">${Math.round(gc['A']/empTotal*100)}%</div>` : '<div style="color:#ddd">—</div>'}
+      </div>
+      <div style="text-align:center">
+        ${gc['B'] ? `<div style="font-size:18px;font-weight:bold;color:#FB8C00">${gc['B']}</div><div style="font-size:10px;color:var(--light)">${Math.round(gc['B']/empTotal*100)}%</div>` : '<div style="color:#ddd">—</div>'}
+      </div>
+      <div style="text-align:center">
+        ${gc['C'] ? `<div style="font-size:18px;font-weight:bold;color:#43A047">${gc['C']}</div><div style="font-size:10px;color:var(--light)">${Math.round(gc['C']/empTotal*100)}%</div>` : '<div style="color:#ddd">—</div>'}
+      </div>
+      <div style="text-align:center">
+        ${gc['D'] ? `<div style="font-size:18px;font-weight:bold;color:#90A4AE">${gc['D']}</div><div style="font-size:10px;color:var(--light)">${Math.round(gc['D']/empTotal*100)}%</div>` : '<div style="color:#ddd">—</div>'}
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:16px;font-weight:bold;color:var(--cool)">+${newM}</div>
+      </div>
+    `;
+
+    // Mini donut next to name
+    const donutWrap = document.createElement('div');
+    donutWrap.style.cssText = 'display:flex;align-items:center;gap:10px;padding:6px 10px;background:#FAFAFA;border-bottom:1px solid #F0F0F0';
+    donutWrap.innerHTML = `
+      <div style="width:52px;flex-shrink:0">${buildDonut(empSegs, empTotal, '', 52)}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px 14px">
+        ${empSegs.map(s=>`<span style="font-size:11px;color:var(--mid);display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:${s.color};display:inline-block"></span>${s.label} ${s.count} (${Math.round(s.count/empTotal*100)}%)</span>`).join('')}
+      </div>
+    `;
+
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(row);
+    wrapper.appendChild(donutWrap);
+    empEl.appendChild(wrapper);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  CUSTOMER LIST
+// ════════════════════════════════════════════════════════════
+function renderCustomerFilters() {
+  ['filter-employee','parse-employee','closed-filter-employee','filter-order-employee'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    const isFilter = id.startsWith('filter') || id.startsWith('closed');
+    sel.innerHTML = isFilter ? '<option value="">全部业务员</option>' : '<option value="">-- 选择业务员 --</option>';
+    settings.employees.forEach(e => sel.innerHTML += `<option value="${e}">${e}</option>`);
+    sel.value = cur;
+  });
+}
+
+function renderCustomers() {
+  const q    = (document.getElementById('customer-search')?.value||'').toLowerCase();
+  const heat = document.getElementById('filter-heat')?.value||'';
+  const emp  = document.getElementById('filter-employee')?.value||'';
+  const grade = document.getElementById('filter-grade')?.value||'';
+
+  let list = db.customers.filter(c => {
+    if (heat && c.heat_level!==heat) return false;
+    if (emp  && c.employee!==emp)    return false;
+    if (grade && c.grade!==grade)    return false;
+    if (q) { const hay = `${c.name} ${c.country} ${c.type} ${c.employee} ${c.grade||''}`.toLowerCase(); if (!hay.includes(q)) return false; }
+    return true;
+  }).sort((a,b) => {
+    const order = {hot:0,warm:1,cool:2,cold:3,closed:4};
+    return (order[a.heat_level]||2)-(order[b.heat_level]||2) || (b.updated_at||'').localeCompare(a.updated_at||'');
+  });
+
+  document.getElementById('customer-count').textContent = `共 ${list.length} 个客户`;
+  const container = document.getElementById('customer-list-container');
+  if (!list.length) { container.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><p>暂无匹配客户</p></div>`; return; }
+  container.innerHTML = '';
+  list.forEach(c => container.appendChild(buildCustomerRow(c)));
+}
+
+// ════════════════════════════════════════════════════════════
+//  CLOSED CUSTOMERS
+// ════════════════════════════════════════════════════════════
+function renderClosed() {
+  const q   = (document.getElementById('closed-search')?.value||'').toLowerCase();
+  const emp = document.getElementById('closed-filter-employee')?.value||'';
+  let list = db.customers.filter(c => {
+    if (c.heat_level !== 'closed') return false;
+    if (emp && c.employee !== emp) return false;
+    if (q) { const hay = `${c.name} ${c.country} ${c.type} ${c.employee}`.toLowerCase(); if (!hay.includes(q)) return false; }
+    return true;
+  }).sort((a,b) => (b.updated_at||'').localeCompare(a.updated_at||''));
+
+  document.getElementById('closed-count').textContent = `共 ${list.length} 个成交客户`;
+  const container = document.getElementById('closed-list-container');
+  if (!list.length) { container.innerHTML = `<div class="empty-state"><div class="empty-icon">🏆</div><p>暂无成交客户</p></div>`; return; }
+  container.innerHTML = '';
+  list.forEach(c => {
+    const orders = db.orders.filter(o => o.customer_id === c.id);
+    const totalAmt = orders.reduce((s,o) => s + (parseFloat(o.total_amount)||0), 0);
+    const div = document.createElement('div');
+    div.className = 'customer-row';
+    div.innerHTML = `
+      <div class="cr-name">${c.name}</div>
+      <div class="cr-country">${c.country||'—'}</div>
+      <div class="cr-type">${c.type||'—'}</div>
+      ${gradeBadge(c.grade)||'<span></span>'}
+      <div class="cr-employee">${c.employee||'—'}</div>
+      <div style="flex:1;font-size:12px;color:var(--cool)">📦 ${orders.length} 笔订单${totalAmt?` · $${totalAmt.toLocaleString()}`:''}</div>
+      <div class="cr-last">${formatDate(c.updated_at)}</div>
+    `;
+    div.onclick = () => openCustomer(c.id);
+    container.appendChild(div);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  REMINDERS
+// ════════════════════════════════════════════════════════════
+function updateReminderBadge() {
+  const t = today();
+  const cnt = db.customers.filter(c => c.reminder_date && c.reminder_date <= t).length;
+  const badge = document.getElementById('reminder-badge');
+  badge.style.display = cnt > 0 ? '' : 'none';
+  badge.textContent = cnt;
+}
+
+function switchReminderTab(tab, el) {
+  reminderTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderReminders();
+}
+
+function renderReminders() {
+  const t = today();
+  const weekStr = (() => { const d = new Date(); d.setDate(d.getDate()+7); return d.toISOString().split('T')[0]; })();
+  const all    = db.customers.filter(c => c.reminder_date);
+  const overdue = all.filter(c => c.reminder_date<t).sort((a,b)=>a.reminder_date.localeCompare(b.reminder_date));
+  const todayL  = all.filter(c => c.reminder_date===t);
+  const weekL   = all.filter(c => c.reminder_date>t && c.reminder_date<=weekStr).sort((a,b)=>a.reminder_date.localeCompare(b.reminder_date));
+
+  document.getElementById('cnt-overdue').textContent = overdue.length ? `(${overdue.length})` : '';
+  document.getElementById('cnt-today').textContent   = todayL.length  ? `(${todayL.length})` : '';
+  document.getElementById('cnt-week').textContent    = weekL.length   ? `(${weekL.length})` : '';
+
+  let list = reminderTab==='overdue'?overdue:reminderTab==='today'?todayL:reminderTab==='week'?weekL:all.sort((a,b)=>a.reminder_date.localeCompare(b.reminder_date));
+  const container = document.getElementById('reminders-container');
+  if (!list.length) { container.innerHTML = `<div class="empty-state"><div class="empty-icon">✅</div><p>没有${reminderTab==='overdue'?'逾期':reminderTab==='today'?'今日':reminderTab==='week'?'本周':''}提醒</p></div>`; return; }
+  container.innerHTML = '';
+  list.forEach(c => {
+    const diff = daysDiff(c.reminder_date);
+    const isO = diff!==null&&diff<0, isT = diff===0;
+    const div = document.createElement('div');
+    div.className = `reminder-item ${isO?'ri-overdue':isT?'ri-today':''}`;
+    div.innerHTML = `
+      <div class="ri-date">${formatDate(c.reminder_date)}${isO?` (逾期${-diff}天)`:isT?' (今天)':''}</div>
+      ${heatBadge(c.heat_level)}${gradeBadge(c.grade)}
+      <div class="ri-name">${c.name}</div>
+      <div style="font-size:11px;color:var(--light);min-width:90px">${c.country||''} · ${c.employee||''}</div>
+      <div class="ri-note">${c.next_action||'—'}</div>
+      <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openCustomer('${c.id}')">查看</button>
+    `;
+    div.onclick = () => openCustomer(c.id);
+    container.appendChild(div);
+  });
+  updateReminderBadge();
+}
+
+// ════════════════════════════════════════════════════════════
+//  ORDERS
+// ════════════════════════════════════════════════════════════
+const STAGES = [
+  { key:'confirmed',  label:'下单确认', icon:'📋' },
+  { key:'production', label:'生产中',   icon:'🏭' },
+  { key:'inspection', label:'质检/备货',icon:'🔍' },
+  { key:'customs',    label:'报关出口', icon:'📤' },
+  { key:'transit',    label:'船期/在途',icon:'🚢' },
+  { key:'arrived',    label:'到港清关', icon:'⚓' },
+  { key:'completed',  label:'完成收款', icon:'✅' },
+];
+const STAGE_IDX = Object.fromEntries(STAGES.map((s,i)=>[s.key,i]));
+
+function updateOrderBadge() {
+  const cnt = db.orders.filter(o => {
+    if (o.stage==='completed') return false;
+    const eta = o.ship_eta || o.delivery_date;
+    if (!eta) return false;
+    return daysDiff(eta) !== null && daysDiff(eta) <= 7;
+  }).length;
+  const badge = document.getElementById('order-badge');
+  badge.style.display = cnt > 0 ? '' : 'none';
+  badge.textContent = cnt;
+}
+
+function renderOrders() {
+  const q     = (document.getElementById('order-search')?.value||'').toLowerCase();
+  const stage = document.getElementById('filter-order-stage')?.value||'';
+  const emp   = document.getElementById('filter-order-employee')?.value||'';
+
+  let list = db.orders.filter(o => {
+    if (stage && o.stage!==stage) return false;
+    if (emp) { const c = db.customers.find(x=>x.id===o.customer_id); if (!c||c.employee!==emp) return false; }
+    if (q) { const c = db.customers.find(x=>x.id===o.customer_id); const hay = `${o.order_no||''} ${c?.name||''} ${o.product_desc||''}`.toLowerCase(); if (!hay.includes(q)) return false; }
+    return true;
+  }).sort((a,b) => (b.order_date||'').localeCompare(a.order_date||''));
+
+  document.getElementById('order-count').textContent = `共 ${list.length} 笔订单`;
+  const container = document.getElementById('orders-container');
+  if (!list.length) { container.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div><p>暂无订单记录</p></div>`; return; }
+  container.innerHTML = '';
+  list.forEach(o => container.appendChild(buildOrderCard(o)));
+  updateOrderBadge();
+}
+
+function getPaymentTermsLabel(o) {
+  const pt = o.payment_terms_type || 'tt';
+  if (pt === 'lc_sight') return 'LC at Sight';
+  if (pt === 'lc_term')  return `LC ${o.lc_days||''}天`;
+  if (pt === 'custom')   return o.payment_custom || '自定义';
+  // TT breakdown
+  const parts = [];
+  if (o.dep_pct)  parts.push(`定金${o.dep_pct}%`);
+  if (o.pre_pct)  parts.push(`发货前${o.pre_pct}%`);
+  if (o.post_pct) parts.push(`发货后${o.post_pct}%`);
+  return parts.length ? parts.join(' + ') : (o.deposit_amount ? '定金30%+尾款70%' : 'T/T');
+}
+
+function buildOrderCard(o) {
+  const c = db.customers.find(x => x.id === o.customer_id);
+  const stageIdx = STAGE_IDX[o.stage] ?? 0;
+  const stageDef = STAGES[stageIdx];
+  const totalPaid = (o.payments||[]).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const totalAmt  = parseFloat(o.total_amount)||0;
+  const paidPct   = totalAmt > 0 ? Math.min(100, Math.round(totalPaid/totalAmt*100)) : 0;
+  const remaining = Math.max(0, totalAmt - totalPaid);
+  const payLabel  = getPaymentTermsLabel(o);
+  const contactDisplay = o.order_contact || c?.contact || '';
+
+  const shipEta = o.ship_eta;
+  let etaHtml = '';
+  if (shipEta && o.stage!=='completed') {
+    const d = daysDiff(shipEta);
+    if (d < 0) etaHtml = `<span style="font-size:11px;color:var(--hot);font-weight:bold">⚠️ 已逾期${-d}天</span>`;
+    else if (d <= 7) etaHtml = `<span style="font-size:11px;color:var(--warm);font-weight:bold">🔔 ${d===0?'今天发货':d+'天后发货'}</span>`;
+  }
+
+  const div = document.createElement('div');
+  div.className = 'order-card';
+  div.innerHTML = `
+    <div class="order-card-header" onclick="toggleOrderBody('${o.id}')">
+      <div style="font-size:16px">${stageDef.icon}</div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span class="order-no">${o.order_no||'订单'}</span>
+          <span style="font-size:12px;color:var(--mid)">${c?c.name:'未知客户'}</span>
+          ${contactDisplay?`<span style="font-size:11px;color:var(--light)">👤 ${contactDisplay}</span>`:''}
+          <span class="order-stage-badge os-${o.stage}">${stageDef.label}</span>
+          ${etaHtml}
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;margin-top:4px;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--light)">下单：${formatDate(o.order_date)}</span>
+          ${o.delivery_date?`<span style="font-size:12px;color:var(--light)">交期：${formatDate(o.delivery_date)}</span>`:''}
+          ${totalAmt?`<span class="order-amount">$${totalAmt.toLocaleString()}</span>`:''}
+          <span style="font-size:11px;color:var(--light);background:var(--bg);padding:1px 6px;border-radius:4px">${payLabel}</span>
+          ${totalAmt?`<span style="font-size:12px;color:var(--mid)">已收 $${totalPaid.toLocaleString()} (${paidPct}%)</span>`:''}
+          ${remaining&&paidPct<100?`<span style="font-size:12px;color:var(--hot)">应收 $${remaining.toLocaleString()}</span>`:''}
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--light)">▼</div>
+    </div>
+    <div id="order-body-${o.id}" class="order-body" style="display:none">
+      ${buildGantt(o)}
+      <div class="order-fields">
+        <div class="order-field"><label>客户</label><div class="ofval">${c?c.name:'—'}</div></div>
+        <div class="order-field"><label>联系人</label><div class="ofval">${contactDisplay||'—'}</div></div>
+        <div class="order-field"><label>产品描述</label><div class="ofval">${o.product_desc||'—'}</div></div>
+        <div class="order-field"><label>付款方式</label><div class="ofval">${payLabel}</div></div>
+        <div class="order-field"><label>订单总金额</label><div class="ofval">${totalAmt?'$'+totalAmt.toLocaleString():'—'}</div></div>
+        <div class="order-field"><label>定金金额</label><div class="ofval">${o.deposit_amount?'$'+(parseFloat(o.deposit_amount)||0).toLocaleString():'—'}</div></div>
+        <div class="order-field"><label>下单日期</label><div class="ofval">${formatDate(o.order_date)}</div></div>
+        <div class="order-field"><label>交货期</label><div class="ofval">${o.lead_time||'—'}</div></div>
+        <div class="order-field"><label>预计发货日期</label><div class="ofval">${formatDate(o.ship_eta)}</div></div>
+        <div class="order-field"><label>实际发货日期</label><div class="ofval">${formatDate(o.ship_actual)}</div></div>
+        <div class="order-field"><label>货物到港日期</label><div class="ofval">${formatDate(o.arrival_date)}</div></div>
+        <div class="order-field"><label>港口/目的地</label><div class="ofval">${o.destination||'—'}</div></div>
+        <div class="order-field"><label>备注</label><div class="ofval">${o.notes||'—'}</div></div>
+      </div>
+      ${buildPaymentSection(o)}
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-secondary btn-sm" onclick="openEditOrderModal('${o.id}')">✏️ 编辑订单</button>
+        <button class="btn btn-secondary btn-sm" onclick="openAddPaymentModal('${o.id}')">💰 添加收款</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑️ 删除</button>
+      </div>
+    </div>
+  `;
+  return div;
+}
+
+function buildGantt(o) {
+  const stageIdx = STAGE_IDX[o.stage] ?? 0;
+  const steps = STAGES.map((s,i) => {
+    const isDone   = i < stageIdx;
+    const isActive = i === stageIdx;
+    let dateStr = '';
+    if (s.key==='confirmed')  dateStr = o.order_date||'';
+    if (s.key==='production') dateStr = o.production_start||'';
+    if (s.key==='inspection') dateStr = o.inspection_date||'';
+    if (s.key==='customs')    dateStr = o.customs_date||'';
+    if (s.key==='transit')    dateStr = o.ship_actual||'';
+    if (s.key==='arrived')    dateStr = o.arrival_date||'';
+    if (s.key==='completed')  dateStr = o.completed_date||'';
+    return `
+      <div class="gantt-step ${isDone?'done':isActive?'active':''}">
+        <div class="gantt-icon">${isDone?'✅':s.icon}</div>
+        <div class="gantt-label">${s.label}</div>
+        ${dateStr?`<div class="gantt-date">${formatDate(dateStr)}</div>`:''}
+      </div>`;
+  }).join('');
+  return `<div class="gantt-wrap"><div class="gantt">${steps}</div></div>`;
+}
+
+function buildPaymentSection(o) {
+  const totalAmt  = parseFloat(o.total_amount)||0;
+  const payments  = o.payments||[];
+  const totalPaid = payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const paidPct   = totalAmt>0 ? Math.min(100,Math.round(totalPaid/totalAmt*100)) : 0;
+  const payRows = payments.map(p => `
+    <div class="payment-record">
+      <span class="pr-type">${p.type==='deposit'?'定金':'尾款'}</span>
+      <span class="pr-amount">$${(parseFloat(p.amount)||0).toLocaleString()}</span>
+      <span class="pr-date-col">${formatDate(p.date)}</span>
+      <span class="pr-note">${p.note||''}</span>
+    </div>`).join('');
+  return `
+    <div style="margin-bottom:10px">
+      <div style="font-size:12px;font-weight:bold;color:var(--dark);margin-bottom:6px">💰 收款记录</div>
+      <div class="payment-info"><span>已收 $${totalPaid.toLocaleString()} / $${totalAmt.toLocaleString()}</span><span>${paidPct}%</span></div>
+      <div class="payment-bar-wrap"><div class="payment-bar" style="width:${paidPct}%"></div></div>
+      ${payRows||'<div style="font-size:12px;color:var(--light);padding:6px 0">暂无收款记录</div>'}
+    </div>`;
+}
+
+function toggleOrderBody(id) {
+  const el = document.getElementById('order-body-'+id);
+  if (el) el.style.display = el.style.display==='none' ? '' : 'none';
+}
+
+// ════════════════════════════════════════════════════════════
+//  ORDER MODAL (New / Edit)
+// ════════════════════════════════════════════════════════════
+function openNewOrderModal(customerId) {
+  editingOrderId = null;
+  const title = document.getElementById('order-modal-title');
+  const subtitle = document.getElementById('order-modal-subtitle');
+  title.textContent = '新建订单';
+  subtitle.textContent = customerId ? (db.customers.find(x=>x.id===customerId)?.name||'') : '';
+  renderOrderForm(null, customerId);
+  document.getElementById('order-modal-overlay').classList.add('open');
+}
+
+function openEditOrderModal(id) {
+  editingOrderId = id;
+  const o = db.orders.find(x=>x.id===id);
+  if (!o) return;
+  const c = db.customers.find(x=>x.id===o.customer_id);
+  document.getElementById('order-modal-title').textContent = '编辑订单';
+  document.getElementById('order-modal-subtitle').textContent = c?.name||'';
+  renderOrderForm(o, o.customer_id);
+  document.getElementById('order-modal-overlay').classList.add('open');
+}
+
+function renderOrderForm(o, preCustomerId) {
+  const allCustOptions = db.customers.map(c =>
+    `<option value="${c.id}" ${(o?.customer_id||preCustomerId)===c.id?'selected':''}>${c.name}${c.country?' ('+c.country+')':''}</option>`
+  ).join('');
+  const stageOptions = STAGES.map(s => `<option value="${s.key}" ${o?.stage===s.key?'selected':''}>${s.icon} ${s.label}</option>`).join('');
+
+  // Payment terms type
+  const pt = o?.payment_terms_type || 'tt';
+  const ptTT    = pt==='tt'    ? 'selected' : '';
+  const ptLC    = pt==='lc_sight' ? 'selected' : '';
+  const ptLCT   = pt==='lc_term'  ? 'selected' : '';
+  const ptCustom= pt==='custom'   ? 'selected' : '';
+
+  // Auto-fill contact from linked customer
+  const linkedCust = preCustomerId ? db.customers.find(c=>c.id===preCustomerId) : (o?.customer_id ? db.customers.find(c=>c.id===o.customer_id) : null);
+  const defaultContact = o?.order_contact || linkedCust?.contact || '';
+
+  document.getElementById('order-modal-body').innerHTML = `
+    <div class="field-grid-3" style="gap:10px 16px">
+      <div class="field-item"><label>客户 *</label>
+        <select class="meta-select" id="of-customer" style="width:100%" onchange="onOrderCustomerChange(this)">
+          <option value="">-- 选择客户 --</option>${allCustOptions}
+        </select>
+      </div>
+      <div class="field-item"><label>联系人</label>
+        <input class="meta-input" id="of-contact" value="${defaultContact}" style="width:100%" placeholder="订单对接联系人">
+      </div>
+      <div class="field-item"><label>订单编号</label><input class="meta-input" id="of-order-no" value="${o?.order_no||''}" style="width:100%" placeholder="如 PO-2025-001"></div>
+      <div class="field-item"><label>当前阶段</label><select class="meta-select" id="of-stage" style="width:100%">${stageOptions}</select></div>
+      <div class="field-item"><label>产品描述</label><input class="meta-input" id="of-product-desc" value="${o?.product_desc||''}" style="width:100%" placeholder="如：HPL 672张 防火板"></div>
+      <div class="field-item"><label>订单总金额 ($)</label><input class="meta-input" id="of-total-amount" type="number" value="${o?.total_amount||''}" style="width:100%" oninput="syncPaymentAmounts()"></div>
+    </div>
+
+    <!-- Payment Terms -->
+    <div style="background:var(--bg);border-radius:8px;padding:12px;margin:10px 0">
+      <div style="font-size:12px;font-weight:bold;color:var(--dark);margin-bottom:10px">💳 付款方式</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <select class="meta-select" id="of-payment-type" onchange="onPaymentTypeChange()" style="min-width:180px">
+          <option value="tt" ${ptTT}>T/T 电汇（分段）</option>
+          <option value="lc_sight" ${ptLC}>LC at Sight（即期信用证）</option>
+          <option value="lc_term" ${ptLCT}>LC at XXX days（远期信用证）</option>
+          <option value="custom" ${ptCustom}>自定义</option>
+        </select>
+        <input class="meta-input" id="of-lc-days" value="${o?.lc_days||''}" style="width:100px;display:${pt==='lc_term'?'':'none'}" placeholder="天数">
+        <span id="of-lc-days-label" style="font-size:12px;color:var(--mid);display:${pt==='lc_term'?'':'none'}">天</span>
+        <input class="meta-input" id="of-payment-custom" value="${o?.payment_custom||''}" style="flex:1;display:${pt==='custom'?'':'none'}" placeholder="如：预付50%，见提单副本付50%">
+      </div>
+      <div id="of-tt-breakdown" style="display:${pt==='tt'?'':'none'}">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <div class="field-item">
+            <label>定金比例 %</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input class="meta-input" id="of-dep-pct" type="number" min="0" max="100" value="${o?.dep_pct??30}" style="width:70px" oninput="syncPaymentAmounts()">
+              <span style="font-size:11px;color:var(--light)">% = $<span id="of-dep-amt">—</span></span>
+            </div>
+          </div>
+          <div class="field-item">
+            <label>发货前比例 %</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input class="meta-input" id="of-pre-pct" type="number" min="0" max="100" value="${o?.pre_pct??0}" style="width:70px" oninput="syncPaymentAmounts()">
+              <span style="font-size:11px;color:var(--light)">% = $<span id="of-pre-amt">—</span></span>
+            </div>
+          </div>
+          <div class="field-item">
+            <label>发货后比例 %</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input class="meta-input" id="of-post-pct" type="number" min="0" max="100" value="${o?.post_pct??70}" style="width:70px" oninput="syncPaymentAmounts()">
+              <span style="font-size:11px;color:var(--light)">% = $<span id="of-post-amt">—</span></span>
+            </div>
+          </div>
+        </div>
+        <div id="of-pct-warning" style="font-size:11px;color:var(--hot);margin-top:6px;display:none">⚠️ 各比例之和不等于100%</div>
+      </div>
+    </div>
+
+    <div class="field-grid-3" style="gap:10px 16px">
+      <div class="field-item"><label>下单日期</label><input class="meta-input" id="of-order-date" type="date" value="${o?.order_date||today()}" style="width:100%"></div>
+      <div class="field-item"><label>交货期</label><input class="meta-input" id="of-lead-time" value="${o?.lead_time||''}" style="width:100%" placeholder="如：30天"></div>
+      <div class="field-item"><label>预计发货日期</label><input class="meta-input" id="of-ship-eta" type="date" value="${o?.ship_eta||''}" style="width:100%"></div>
+      <div class="field-item"><label>实际发货日期</label><input class="meta-input" id="of-ship-actual" type="date" value="${o?.ship_actual||''}" style="width:100%"></div>
+      <div class="field-item"><label>报关日期</label><input class="meta-input" id="of-customs-date" type="date" value="${o?.customs_date||''}" style="width:100%"></div>
+      <div class="field-item"><label>货物到港日期</label><input class="meta-input" id="of-arrival-date" type="date" value="${o?.arrival_date||''}" style="width:100%"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-top:8px">
+      <div class="field-item"><label>目的港</label><input class="meta-input" id="of-destination" value="${o?.destination||''}" style="width:100%" placeholder="如：Valencia, Spain"></div>
+      <div class="field-item"><label>订单备注</label>
+        <textarea class="meta-input" id="of-notes" style="width:100%;height:60px;resize:vertical">${o?.notes||''}</textarea>
+      </div>
+    </div>
+  `;
+  document.getElementById('order-modal-footer').innerHTML = `
+    <button class="btn btn-secondary btn-sm" onclick="closeOrderModal()">取消</button>
+    <button class="btn btn-primary btn-sm" onclick="saveOrderForm()">💾 保存订单</button>
+  `;
+  // Init calculated amounts
+  syncPaymentAmounts();
+}
+
+function onOrderCustomerChange(sel) {
+  const c = db.customers.find(x => x.id === sel.value);
+  if (c && c.contact) {
+    const cf = document.getElementById('of-contact');
+    if (cf && !cf.value) cf.value = c.contact;
+  }
+}
+
+function onPaymentTypeChange() {
+  const pt = document.getElementById('of-payment-type').value;
+  document.getElementById('of-tt-breakdown').style.display    = pt==='tt'      ? '' : 'none';
+  document.getElementById('of-lc-days').style.display         = pt==='lc_term' ? '' : 'none';
+  document.getElementById('of-lc-days-label').style.display   = pt==='lc_term' ? '' : 'none';
+  document.getElementById('of-payment-custom').style.display  = pt==='custom'  ? '' : 'none';
+}
+
+function syncPaymentAmounts() {
+  const total = parseFloat(document.getElementById('of-total-amount')?.value) || 0;
+  const dep   = parseFloat(document.getElementById('of-dep-pct')?.value)  || 0;
+  const pre   = parseFloat(document.getElementById('of-pre-pct')?.value)  || 0;
+  const post  = parseFloat(document.getElementById('of-post-pct')?.value) || 0;
+  const fmt = v => total ? (Math.round(total * v / 100 * 100) / 100).toLocaleString() : '—';
+  const dEl = document.getElementById('of-dep-amt');  if (dEl) dEl.textContent = fmt(dep);
+  const pEl = document.getElementById('of-pre-amt');  if (pEl) pEl.textContent = fmt(pre);
+  const tEl = document.getElementById('of-post-amt'); if (tEl) tEl.textContent = fmt(post);
+  const warn = document.getElementById('of-pct-warning');
+  if (warn) warn.style.display = (dep+pre+post !== 100) ? '' : 'none';
+}
+
+function saveOrderForm() {
+  const customerId = document.getElementById('of-customer').value;
+  if (!customerId) { showToast('请选择客户'); return; }
+
+  const pt = document.getElementById('of-payment-type').value;
+  const dep_pct  = parseFloat(document.getElementById('of-dep-pct')?.value)  || 0;
+  const pre_pct  = parseFloat(document.getElementById('of-pre-pct')?.value)  || 0;
+  const post_pct = parseFloat(document.getElementById('of-post-pct')?.value) || 0;
+  const totalAmt = parseFloat(document.getElementById('of-total-amount').value) || 0;
+
+  // Validate TT breakdown
+  if (pt === 'tt' && dep_pct + pre_pct + post_pct !== 100) {
+    if (!confirm(`付款比例合计为 ${dep_pct+pre_pct+post_pct}%，不等于100%，确定保存吗？`)) return;
+  }
+
+  const fields = {
+    customer_id:        customerId,
+    order_contact:      document.getElementById('of-contact').value.trim(),
+    order_no:           document.getElementById('of-order-no').value.trim(),
+    stage:              document.getElementById('of-stage').value,
+    product_desc:       document.getElementById('of-product-desc').value.trim(),
+    total_amount:       document.getElementById('of-total-amount').value,
+    deposit_amount:     pt==='tt' ? String(Math.round(totalAmt*dep_pct/100*100)/100) : '',
+    payment_terms_type: pt,
+    dep_pct:            pt==='tt' ? dep_pct  : null,
+    pre_pct:            pt==='tt' ? pre_pct  : null,
+    post_pct:           pt==='tt' ? post_pct : null,
+    lc_days:            pt==='lc_term' ? document.getElementById('of-lc-days').value.trim() : '',
+    payment_custom:     pt==='custom'  ? document.getElementById('of-payment-custom').value.trim() : '',
+    order_date:         document.getElementById('of-order-date').value,
+    lead_time:          document.getElementById('of-lead-time').value.trim(),
+    ship_eta:           document.getElementById('of-ship-eta').value,
+    ship_actual:        document.getElementById('of-ship-actual').value,
+    customs_date:       document.getElementById('of-customs-date').value,
+    arrival_date:       document.getElementById('of-arrival-date').value,
+    destination:        document.getElementById('of-destination').value.trim(),
+    notes:              document.getElementById('of-notes').value.trim(),
+  };
+
+  if (editingOrderId) {
+    const idx = db.orders.findIndex(x => x.id===editingOrderId);
+    if (idx>=0) { db.orders[idx] = { ...db.orders[idx], ...fields }; }
+  } else {
+    db.orders.push({ id:'o_'+Date.now()+'_'+Math.random().toString(36).slice(2), payments:[], ...fields });
+    const cust = db.customers.find(x => x.id===customerId);
+    if (cust && cust.heat_level !== 'closed') { cust.heat_level = 'closed'; cust.updated_at = today(); }
+  }
+  saveData(db);
+  closeOrderModal();
+  renderAll();
+  showToast(editingOrderId ? '订单已更新' : '订单已创建');
+}
+
+function closeOrderModal() {
+  document.getElementById('order-modal-overlay').classList.remove('open');
+  editingOrderId = null;
+}
+document.getElementById('order-modal-overlay').addEventListener('click', function(e){ if(e.target===this) closeOrderModal(); });
+
+function deleteOrder(id) {
+  if (!confirm('确定删除此订单？')) return;
+  db.orders = db.orders.filter(x => x.id!==id);
+  deleteOrderDoc(id).catch(e => console.error(e));
+  renderAll();
+  showToast('订单已删除');
+}
+
+// ════════════════════════════════════════════════════════════
+//  ADD PAYMENT MODAL
+// ════════════════════════════════════════════════════════════
+function openAddPaymentModal(orderId) {
+  editingOrderId = orderId;
+  const o = db.orders.find(x=>x.id===orderId);
+  if (!o) return;
+  const c = db.customers.find(x=>x.id===o.customer_id);
+  document.getElementById('order-modal-title').textContent = '添加收款记录';
+  document.getElementById('order-modal-subtitle').textContent = `${c?.name||''} · ${o.order_no||''}`;
+  document.getElementById('order-modal-body').innerHTML = `
+    <div class="field-grid" style="gap:10px 16px">
+      <div class="field-item"><label>收款类型</label>
+        <select class="meta-select" id="pf-type" style="width:100%">
+          <option value="deposit">定金 (30%)</option>
+          <option value="balance">尾款 (70%)</option>
+          <option value="other">其他</option>
+        </select>
+      </div>
+      <div class="field-item"><label>金额 ($)</label><input class="meta-input" id="pf-amount" type="number" style="width:100%" placeholder="0.00"></div>
+      <div class="field-item"><label>收款日期</label><input class="meta-input" id="pf-date" type="date" value="${today()}" style="width:100%"></div>
+      <div class="field-item"><label>备注</label><input class="meta-input" id="pf-note" style="width:100%" placeholder="如：TT转账"></div>
+    </div>
+  `;
+  document.getElementById('order-modal-footer').innerHTML = `
+    <button class="btn btn-secondary btn-sm" onclick="closeOrderModal()">取消</button>
+    <button class="btn btn-primary btn-sm" onclick="savePayment()">💾 保存收款</button>
+  `;
+  document.getElementById('order-modal-overlay').classList.add('open');
+}
+
+function savePayment() {
+  const amount = document.getElementById('pf-amount').value;
+  if (!amount||parseFloat(amount)<=0) { showToast('请输入有效金额'); return; }
+  const o = db.orders.find(x=>x.id===editingOrderId);
+  if (!o) return;
+  o.payments = o.payments||[];
+  o.payments.push({ type:document.getElementById('pf-type').value, amount:parseFloat(amount), date:document.getElementById('pf-date').value, note:document.getElementById('pf-note').value.trim() });
+  // Auto-advance to completed if fully paid
+  const totalPaid = o.payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  if (parseFloat(o.total_amount)>0 && totalPaid >= parseFloat(o.total_amount)*0.99) {
+    o.stage = 'completed';
+    if (!o.completed_date) o.completed_date = today();
+  }
+  saveData(db);
+  closeOrderModal();
+  renderAll();
+  showToast('收款记录已添加');
+}
+
+// ════════════════════════════════════════════════════════════
+//  EXHIBITION
+// ════════════════════════════════════════════════════════════
+function renderExhibition() {
+  const we = db.customers.filter(c => c.exhibition_status);
+  const attending  = we.filter(c=>c.exhibition_status==='attending');
+  const interested = we.filter(c=>c.exhibition_status==='interested');
+  document.getElementById('exhibition-stats').innerHTML = `
+    <div style="background:#E8F5E9;border-radius:8px;padding:10px 18px;text-align:center"><div style="font-size:22px;font-weight:bold;color:#2E7D32">${attending.length}</div><div style="font-size:11px;color:#666">确认参展</div></div>
+    <div style="background:#FFF3E0;border-radius:8px;padding:10px 18px;text-align:center"><div style="font-size:22px;font-weight:bold;color:#E65100">${interested.length}</div><div style="font-size:11px;color:#666">感兴趣</div></div>
+    <div style="background:var(--bg);border-radius:8px;padding:10px 18px;text-align:center"><div style="font-size:22px;font-weight:bold;color:var(--orange)">${attending.length+interested.length}</div><div style="font-size:11px;color:#666">合计关注</div></div>
+  `;
+  const list = [...attending,...interested,...we.filter(c=>c.exhibition_status==='not')];
+  const container = document.getElementById('exhibition-list');
+  if (!list.length) { container.innerHTML = `<div class="empty-state"><div class="empty-icon">🏛️</div><p>暂无展会记录</p></div>`; return; }
+  container.innerHTML = '';
+  const card = document.createElement('div'); card.className = 'card'; card.innerHTML = '<div class="card-title">展会客户列表</div>';
+  list.forEach(c => {
+    const es = { attending:'es-attending', interested:'es-interested', not:'es-not' }[c.exhibition_status]||'';
+    const el = { attending:'✅ 参展', interested:'👀 感兴趣', not:'❌ 不参加' }[c.exhibition_status]||c.exhibition_status;
+    const div = document.createElement('div'); div.className = 'exhib-row';
+    div.innerHTML = `<span class="exhib-status ${es}">${el}</span>${heatBadge(c.heat_level)}<div style="font-weight:bold;min-width:120px">${c.name}</div><div style="color:var(--light);min-width:80px;font-size:12px">${c.country||'—'}</div><div style="color:var(--mid);font-size:12px;flex:1">${c.next_action||''}</div><div style="font-size:11px;color:var(--light)">${c.employee||''}</div><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openCustomer('${c.id}')">查看</button>`;
+    div.onclick = () => openCustomer(c.id);
+    card.appendChild(div);
+  });
+  container.appendChild(card);
+}
+
+// ════════════════════════════════════════════════════════════
+//  SETTINGS
+// ════════════════════════════════════════════════════════════
+function renderSettings() {
+  const apiInput = document.getElementById('api-key-input');
+  if (settings.apiKey) apiInput.value = settings.apiKey;
+  const tl = document.getElementById('employee-tag-list');
+  tl.innerHTML = '';
+  settings.employees.forEach((e,i) => {
+    const chip = document.createElement('div'); chip.className = 'tag-chip';
+    chip.innerHTML = `${e} <span class="remove-tag" onclick="removeEmployee(${i})">×</span>`;
+    tl.appendChild(chip);
+  });
+}
+function saveApiKey() { settings.apiKey = document.getElementById('api-key-input').value.trim(); saveSettings(settings); checkApiKey(); showToast('API Key 已保存'); }
+async function testApiKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key) { showToast('请先输入 API Key'); return; }
+  const status = document.getElementById('api-key-status');
+  status.innerHTML = '<span class="spinner"></span> 测试中...';
+  try {
+    await callClaude(key,[{role:'user',content:'请回复"OK"两个字'}],50);
+    status.innerHTML = '<span style="color:var(--cool)">✅ 连接成功</span>';
+    showToast('API Key 有效！');
+  } catch(e) { status.innerHTML = `<span style="color:var(--hot)">❌ 失败: ${e.message}</span>`; }
+}
+function checkApiKey() {
+  const hasKey = !!settings.apiKey;
+  document.getElementById('api-key-warning').style.display = hasKey ? 'none' : '';
+}
+function addEmployee() {
+  const val = document.getElementById('new-employee-input').value.trim();
+  if (!val||settings.employees.includes(val)) { showToast('无效或重复'); return; }
+  settings.employees.push(val); saveSettings(settings); renderSettings(); renderCustomerFilters(); showToast(`已添加：${val}`);
+  document.getElementById('new-employee-input').value = '';
+}
+function removeEmployee(i) {
+  if (!confirm(`确定移除 "${settings.employees[i]}" 吗？`)) return;
+  settings.employees.splice(i,1); saveSettings(settings); renderSettings(); renderCustomerFilters();
+}
+
+// ════════════════════════════════════════════════════════════
+//  CUSTOMER MODAL
+// ════════════════════════════════════════════════════════════
+function switchModalTab(tab, el) {
+  document.querySelectorAll('.modal-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.modal-tab-pane').forEach(p=>p.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const pane = document.getElementById('modal-tab-'+tab);
+  if (pane) pane.classList.add('active');
+  if (tab==='orders_tab') renderModalOrders();
+  if (tab==='samples')    renderModalSamples();
+  if (tab==='timeline')   renderModalTimeline();
+}
+
+function openCustomer(id) {
+  const c = db.customers.find(x=>x.id===id);
+  if (!c) return;
+  modalCustomerId = id;
+  document.getElementById('modal-customer-name').textContent = c.name;
+  document.getElementById('modal-customer-meta').innerHTML = `
+    ${heatBadge(c.heat_level)}${gradeBadge(c.grade)}
+    <span style="font-size:12px;color:var(--light)">${c.country||''}</span>
+    <span style="font-size:12px;color:var(--light)">${c.type||''}</span>
+    <span style="font-size:12px;color:var(--orange-dark)">${c.employee||''}</span>
+  `;
+
+  // Show orders tab for all customers
+  const ordersTabBtn = document.getElementById('modal-orders-tab-btn');
+  if (ordersTabBtn) ordersTabBtn.style.display = '';
+
+  const empOptions = ['', ...settings.employees].map(e => `<option value="${e}" ${c.employee===e?'selected':''}>${e||'— 未分配 —'}</option>`).join('');
+  document.getElementById('modal-fields').innerHTML = `
+    <div class="field-item"><label>国家/地区</label><input class="meta-input" id="mf-country" value="${c.country||''}" style="width:100%" placeholder="如：缅甸"></div>
+    <div class="field-item"><label>客户类型</label><input class="meta-input" id="mf-type" value="${c.type||''}" style="width:100%" placeholder="如：经销商"></div>
+    <div class="field-item"><label>联系人</label><input class="meta-input" id="mf-contact" value="${c.contact||''}" style="width:100%" placeholder="联系人姓名"></div>
+    <div class="field-item"><label>负责业务员</label>
+      <select class="meta-select" id="mf-employee" style="width:100%">${empOptions}</select>
+    </div>
+    <div class="field-item"><label>主要沟通方式</label><input class="meta-input" id="mf-comm" value="${c.comm_channel||''}" style="width:100%" placeholder="如：微信 / WhatsApp"></div>
+    <div class="field-item"><label>客户来源</label><input class="meta-input" id="mf-source" value="${c.source||''}" style="width:100%" placeholder="如：展会 / 独立站"></div>
+    <div class="field-item"><label>现有供应商</label><input class="meta-input" id="mf-supplier" value="${c.existing_supplier||''}" style="width:100%" placeholder="竞品供应商"></div>
+    <div class="field-item"><label>需求产品</label><input class="meta-input" id="mf-products" value="${c.required_products||''}" style="width:100%" placeholder="如：HPL 0.7mm"></div>
+    <div class="field-item"><label>采购量评估</label><input class="meta-input" id="mf-volume" value="${c.purchase_volume||''}" style="width:100%" placeholder="如：每年6个柜"></div>
+    <div class="field-item"><label>预算</label><input class="meta-input" id="mf-budget" value="${c.budget||''}" style="width:100%" placeholder="预算金额"></div>
+    <div class="field-item" style="grid-column:1/-1"><label>样品安排</label><input class="meta-input" id="mf-sample" value="${c.sample_info||''}" style="width:100%" placeholder="样品安排记录"></div>
+    <div class="field-item" style="grid-column:1/-1"><label>快递地址</label><input class="meta-input" id="mf-address" value="${c.address||''}" style="width:100%" placeholder="收件地址"></div>
+    <div style="grid-column:1/-1;margin-top:4px">
+      <button class="btn btn-primary btn-sm" onclick="saveCustomerFields()">💾 保存基本信息</button>
+      <span id="mf-save-status" style="font-size:11px;color:var(--cool);margin-left:10px"></span>
+    </div>
+  `;
+
+  const rd = c.reminder_date ? daysDiff(c.reminder_date) : null;
+  document.getElementById('modal-nextaction').innerHTML = c.next_action ? `
+    <div style="background:var(--orange-light);border-radius:6px;padding:8px 12px;font-size:13px">
+      <span style="color:var(--light);font-size:11px">下一步行动</span><br>
+      <strong>${c.next_action}</strong>
+      ${c.reminder_date?` <span style="font-size:11px;color:${rd!==null&&rd<0?'var(--hot)':'var(--orange-dark)'}">⏰ ${formatDate(c.reminder_date)}${rd!==null&&rd<0?' (逾期)':rd===0?' (今天)':''}</span>`:''}
+    </div>` : '';
+
+  document.getElementById('modal-heat-select').value    = c.heat_level||'cool';
+  document.getElementById('modal-grade-select').value   = c.grade||'';
+  document.getElementById('modal-exhib-select').value   = c.exhibition_status||'';
+  document.getElementById('modal-reminder-date').value  = c.reminder_date||'';
+  document.getElementById('modal-follow-cycle').value   = c.follow_cycle||'';
+  document.getElementById('modal-note-input').value     = '';
+
+  // Reset bulk area
+  document.getElementById('timeline-bulk-area').style.display = 'none';
+  document.getElementById('timeline-bulk-input').value = '';
+  document.getElementById('timeline-bulk-default-date').value = today();
+
+  // Reset quick-add interaction form
+  document.getElementById('tl-add-date').value = today();
+  document.getElementById('tl-add-next').value = '';
+  document.getElementById('tl-add-summary').value = '';
+
+  // Reset sample form
+  document.getElementById('sample-date').value = today();
+  document.getElementById('sample-tracking').value = '';
+  document.getElementById('sample-content').value = '';
+  document.getElementById('sample-note').value = '';
+
+  // Reset to first tab
+  switchModalTab('info', document.querySelector('.modal-tab'));
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function renderModalOrders() {
+  if (!modalCustomerId) return;
+  const orders = db.orders.filter(o => o.customer_id === modalCustomerId).sort((a,b)=>(b.order_date||'').localeCompare(a.order_date||''));
+  const el = document.getElementById('modal-orders-list');
+  if (!orders.length) { el.innerHTML = '<div style="color:var(--light);font-size:12px;padding:12px 0">暂无订单记录</div>'; return; }
+  el.innerHTML = '';
+  orders.forEach(o => {
+    const stageIdx = STAGE_IDX[o.stage]??0;
+    const stageDef = STAGES[stageIdx];
+    const totalPaid = (o.payments||[]).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+    const totalAmt  = parseFloat(o.total_amount)||0;
+    const div = document.createElement('div');
+    div.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer';
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-weight:bold">${o.order_no||'订单'}</span>
+        <span class="order-stage-badge os-${o.stage}">${stageDef.icon} ${stageDef.label}</span>
+        ${totalAmt?`<span style="color:var(--orange);font-weight:bold;margin-left:auto">$${totalAmt.toLocaleString()}</span>`:''}
+      </div>
+      <div style="font-size:12px;color:var(--mid)">${o.product_desc||'—'}</div>
+      <div style="font-size:11px;color:var(--light);margin-top:3px">下单：${formatDate(o.order_date)}${o.ship_eta?` · 预计发货：${formatDate(o.ship_eta)}`:''}${totalAmt?` · 已收 $${totalPaid.toLocaleString()}/${totalAmt.toLocaleString()}`:''}</div>
+      ${buildGantt(o)}
+    `;
+    div.onclick = () => { closeModal(); setTimeout(()=>{ switchView('orders'); }, 100); };
+    el.appendChild(div);
+  });
+}
+
+function saveCustomerFields() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c) return;
+  c.country            = document.getElementById('mf-country').value.trim();
+  c.type               = document.getElementById('mf-type').value.trim();
+  c.contact            = document.getElementById('mf-contact').value.trim();
+  c.employee           = document.getElementById('mf-employee').value;
+  c.comm_channel       = document.getElementById('mf-comm').value.trim();
+  c.source             = document.getElementById('mf-source').value.trim();
+  c.existing_supplier  = document.getElementById('mf-supplier').value.trim();
+  c.required_products  = document.getElementById('mf-products').value.trim();
+  c.purchase_volume    = document.getElementById('mf-volume').value.trim();
+  c.budget             = document.getElementById('mf-budget').value.trim();
+  c.sample_info        = document.getElementById('mf-sample').value.trim();
+  c.address            = document.getElementById('mf-address').value.trim();
+  c.updated_at = today();
+  saveData(db);
+  // Update header meta without closing modal
+  document.getElementById('modal-customer-meta').innerHTML = `
+    ${heatBadge(c.heat_level)}${gradeBadge(c.grade)}
+    <span style="font-size:12px;color:var(--light)">${c.country||''}</span>
+    <span style="font-size:12px;color:var(--light)">${c.type||''}</span>
+    <span style="font-size:12px;color:var(--orange-dark)">${c.employee||''}</span>
+  `;
+  const status = document.getElementById('mf-save-status');
+  status.textContent = '✅ 已保存';
+  setTimeout(() => { status.textContent = ''; }, 2000);
+  renderAll();
+}
+
+function addInteractionRecord() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c) return;
+  const summary = document.getElementById('tl-add-summary').value.trim();
+  if (!summary) { showToast('请填写跟进内容'); return; }
+  const date       = document.getElementById('tl-add-date').value || today();
+  const next_action = document.getElementById('tl-add-next').value.trim();
+  c.interactions = c.interactions || [];
+  c.interactions.push({ date, employee: c.employee || '', summary, next_action });
+  if (next_action) c.next_action = next_action;
+  c.updated_at = today();
+  // Auto-update follow cycle reminder
+  if (c.follow_cycle) {
+    const base = new Date(date);
+    base.setDate(base.getDate() + c.follow_cycle);
+    c.reminder_date = base.toISOString().split('T')[0];
+  }
+  saveData(db);
+  document.getElementById('tl-add-summary').value = '';
+  document.getElementById('tl-add-next').value = '';
+  document.getElementById('tl-add-date').value = today();
+  renderModalTimeline();
+  renderAll();
+  showToast('跟进记录已保存');
+}
+
+function renderModalTimeline() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c) return;
+  const tl = document.getElementById('modal-timeline');
+  tl.innerHTML = '';
+  const allEvents = [];
+  (c.interactions||[]).forEach(ia => allEvents.push({date:ia.date,type:'interaction',data:ia}));
+  (c.notes||[]).forEach(n => allEvents.push({date:n.date,type:'note',data:n}));
+  allEvents.sort((a,b) => b.date.localeCompare(a.date));
+  const cnt = document.getElementById('timeline-count');
+  if (cnt) cnt.textContent = `共 ${allEvents.length} 条记录`;
+  if (!allEvents.length) {
+    tl.innerHTML = '<div style="color:var(--light);font-size:12px;padding:8px 0">暂无互动记录，可点击右上角"批量补充历史记录"导入。</div>';
+    return;
+  }
+  allEvents.forEach(ev => {
+    const item = document.createElement('div'); item.className = 'tl-item';
+    if (ev.type === 'interaction') {
+      const ia = ev.data;
+      item.innerHTML = `<div class="tl-dot"></div><div class="tl-date">${formatDate(ia.date)} <span class="tl-employee">${ia.employee||''}</span></div><div class="tl-text">${ia.summary||'（无摘要）'}</div>${ia.next_action?`<div style="font-size:11px;color:var(--orange-dark);margin-top:2px">→ ${ia.next_action}</div>`:''}`;
+    } else {
+      item.innerHTML = `<div class="tl-dot" style="background:#888"></div><div class="tl-date">${formatDate(ev.data.date)} <span style="color:#aaa;font-size:10px">备注</span></div><div class="tl-text" style="color:#666">${ev.data.text}</div>`;
+    }
+    tl.appendChild(item);
+  });
+}
+
+function saveBulkTimeline() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c) return;
+  const raw = document.getElementById('timeline-bulk-input').value.trim();
+  if (!raw) { showToast('请先输入内容'); return; }
+  const defaultDate = document.getElementById('timeline-bulk-default-date').value || today();
+  const emp = c.employee || '';
+
+  // Split by date patterns: lines starting with date or containing date prefix
+  const datePattern = /(\d{4}[-.\u5e74]\d{1,2}[-.\u6708]?\d{0,2}[日号]?)/;
+  const lines = raw.split('\n');
+  const chunks = [];
+  let cur = null;
+
+  lines.forEach(line => {
+    line = line.trim();
+    if (!line) return;
+    const m = line.match(/^(\d{4}[-.\u5e74]\d{1,2}[-.\u6708]\d{1,2}[日号]?)\s*(.*)/);
+    if (m) {
+      if (cur) chunks.push(cur);
+      const rawDate = m[1].replace(/[\u5e74\u6708\u65e5\u53f7]/g, '-').replace(/\.(\d)(?!\d)/g, '.0$1');
+      const dm = rawDate.match(/(\d{4})[^\d](\d{1,2})[^\d](\d{1,2})/);
+      const date = dm ? `${dm[1]}-${dm[2].padStart(2,'0')}-${dm[3].padStart(2,'0')}` : defaultDate;
+      cur = { date, text: m[2] || '' };
+    } else {
+      if (cur) cur.text += (cur.text ? '\n' : '') + line;
+      else cur = { date: defaultDate, text: line };
+    }
+  });
+  if (cur) chunks.push(cur);
+
+  if (!chunks.length) { showToast('未能解析出任何记录'); return; }
+
+  c.interactions = c.interactions || [];
+  chunks.forEach(ch => {
+    if (!ch.text.trim()) return;
+    c.interactions.push({ date: ch.date, employee: emp, summary: ch.text.trim(), next_action: '' });
+  });
+  c.updated_at = today();
+  saveData(db);
+  document.getElementById('timeline-bulk-area').style.display = 'none';
+  document.getElementById('timeline-bulk-input').value = '';
+  renderModalTimeline();
+  showToast(`已导入 ${chunks.length} 条历史记录`);
+}
+
+function renderModalSamples() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c) return;
+  const samples = c.samples || [];
+  const el = document.getElementById('modal-samples-list');
+  if (!samples.length) {
+    el.innerHTML = '<div style="color:var(--light);font-size:12px;padding:12px 0">暂无样品记录，请在上方添加。</div>';
+    return;
+  }
+  el.innerHTML = '';
+  const statusIcon = { '已寄出':'📦','已签收':'✅','客户已反馈':'💬','待寄出':'⏳' };
+  [...samples].reverse().forEach((s, ri) => {
+    const idx = samples.length - 1 - ri;
+    const div = document.createElement('div');
+    div.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;background:var(--white)';
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;font-weight:bold">${statusIcon[s.status]||'📦'} ${s.status||'已寄出'}</span>
+          <span style="font-size:11px;color:var(--light)">${formatDate(s.date)}</span>
+          ${s.tracking?`<span style="font-size:11px;background:var(--bg);padding:1px 7px;border-radius:4px;color:var(--mid)">📮 ${s.tracking}</span>`:''}
+        </div>
+        <div style="display:flex;gap:6px">
+          <select class="meta-select" style="font-size:11px;padding:2px 6px" onchange="updateSampleStatus(${idx},this.value)">
+            ${['已寄出','已签收','客户已反馈','待寄出'].map(st=>`<option ${st===s.status?'selected':''}>${st}</option>`).join('')}
+          </select>
+          <button style="background:none;border:none;cursor:pointer;color:var(--light);font-size:13px" onclick="deleteSample(${idx})" title="删除">🗑️</button>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--dark)">${s.content||'—'}</div>
+      ${s.note?`<div style="font-size:11px;color:var(--mid);margin-top:4px">💬 ${s.note}</div>`:''}
+    `;
+    el.appendChild(div);
+  });
+}
+
+function addSampleRecord() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c) return;
+  const content = document.getElementById('sample-content').value.trim();
+  if (!content) { showToast('请填写样品内容'); return; }
+  c.samples = c.samples || [];
+  c.samples.push({
+    date:     document.getElementById('sample-date').value || today(),
+    tracking: document.getElementById('sample-tracking').value.trim(),
+    content,
+    status:   document.getElementById('sample-status').value,
+    note:     document.getElementById('sample-note').value.trim(),
+  });
+  c.updated_at = today();
+  saveData(db);
+  // Reset form
+  document.getElementById('sample-tracking').value = '';
+  document.getElementById('sample-content').value = '';
+  document.getElementById('sample-note').value = '';
+  document.getElementById('sample-date').value = today();
+  renderModalSamples();
+  showToast('样品记录已保存');
+}
+
+function updateSampleStatus(idx, status) {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c || !c.samples || !c.samples[idx]) return;
+  c.samples[idx].status = status;
+  c.updated_at = today();
+  saveData(db);
+  renderModalSamples();
+  showToast('状态已更新');
+}
+
+function deleteSample(idx) {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c || !c.samples) return;
+  if (!confirm('确定删除此样品记录？')) return;
+  c.samples.splice(idx, 1);
+  c.updated_at = today();
+  saveData(db);
+  renderModalSamples();
+  showToast('已删除');
+}
+
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); modalCustomerId = null; }
+document.getElementById('modal-overlay').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
+
+function updateHeat() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x=>x.id===modalCustomerId); if (!c) return;
+  c.heat_level = document.getElementById('modal-heat-select').value;
+  c.updated_at = today(); saveData(db); renderAll(); showToast('热度已更新');
+}
+function updateGrade() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x=>x.id===modalCustomerId); if (!c) return;
+  c.grade = document.getElementById('modal-grade-select').value;
+  c.updated_at = today(); saveData(db); renderAll(); showToast('评级已更新');
+}
+function updateExhibition() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x=>x.id===modalCustomerId); if (!c) return;
+  c.exhibition_status = document.getElementById('modal-exhib-select').value;
+  c.updated_at = today(); saveData(db); renderExhibition(); showToast('展会状态已更新');
+}
+function updateReminder() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x=>x.id===modalCustomerId); if (!c) return;
+  c.reminder_date = document.getElementById('modal-reminder-date').value;
+  const v = parseInt(document.getElementById('modal-follow-cycle').value,10);
+  c.follow_cycle = v>0 ? v : null;
+  c.updated_at = today(); saveData(db); renderReminders(); updateReminderBadge();
+  showToast('跟进日期已更新'+(c.follow_cycle?`，周期${c.follow_cycle}天`:''));
+}
+function addManualNote() {
+  if (!modalCustomerId) return;
+  const text = document.getElementById('modal-note-input').value.trim(); if (!text) return;
+  const c = db.customers.find(x=>x.id===modalCustomerId); if (!c) return;
+  c.notes = c.notes||[]; c.notes.push({date:today(),text}); c.updated_at = today();
+  saveData(db); openCustomer(modalCustomerId); showToast('备注已保存');
+}
+function deleteCurrentCustomer() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x=>x.id===modalCustomerId); if (!c) return;
+  if (!confirm(`确定删除客户 "${c.name}" 吗？`)) return;
+  db.customers = db.customers.filter(x=>x.id!==modalCustomerId);
+  deleteCustomerDoc(modalCustomerId).catch(e => console.error(e));
+  closeModal(); renderAll(); showToast('客户已删除');
+}
+
+// ════════════════════════════════════════════════════════════
+//  AI PARSE REPORT
+// ════════════════════════════════════════════════════════════
+async function callClaude(key, messages, maxTokens=2000) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:maxTokens, messages })
+  });
+  if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||res.statusText); }
+  return await res.json();
+}
+
+async function parseReport() {
+  if (!settings.apiKey) { document.getElementById('api-key-warning').style.display=''; return; }
+  const text = document.getElementById('report-text').value.trim();
+  if (!text) { showToast('请先粘贴日报内容'); return; }
+  const employee = document.getElementById('parse-employee').value;
+  const date     = document.getElementById('parse-date').value || today();
+  const btn = document.getElementById('parse-btn');
+  const status = document.getElementById('parse-status');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 解析中...'; status.textContent='AI 正在分析...';
+
+  const prompt = `你是一个外贸CRM助手。请从以下销售日报中提取所有客户信息，以JSON数组格式返回。
+
+每个客户对象包含以下字段（所有字段均可为null）：
+- name: 公司名或客户名
+- country: 国家
+- type: 客户类型（如经销商/工程商/设计师/贸易商等）
+- contact: 联系人姓名
+- grade: 客户评级（A Plus/A/B/C/D，如有提到）
+- comm_channel: 主要沟通方式
+- source: 客户来源
+- heat_level: 热度（hot/warm/cool/cold，根据跟进状态判断）
+- existing_supplier: 现有供应商
+- required_products: 需求产品
+- purchase_volume: 采购量评估
+- next_action: 下一步行动
+- reminder_date: 下次跟进日期（YYYY-MM-DD格式，如有提到）
+- summary: 本次互动摘要（3-5句话）
+- exhibition_status: 展会状态（attending/interested/not，如有提到）
+
+只返回JSON数组，不要其他文字或markdown。
+
+日报内容：
+${text}`;
+
+  try {
+    const data = await callClaude(settings.apiKey, [{role:'user',content:prompt}], 3000);
+    const raw = data.content?.[0]?.text||'[]';
+    parsedCustomers = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    renderParsedResult(parsedCustomers, employee, date);
+    document.getElementById('save-parsed-btn').disabled = false;
+    document.getElementById('save-info').textContent = `解析到 ${parsedCustomers.length} 个客户`;
+    status.textContent = `✅ 解析完成，找到 ${parsedCustomers.length} 个客户`;
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--hot)">❌ 解析失败: ${e.message}</span>`;
+  } finally { btn.disabled=false; btn.innerHTML='✨ AI 解析'; }
+}
+
+function renderParsedResult(parsed, employee, date) {
+  const container = document.getElementById('parse-result'); container.innerHTML = '';
+  parsed.forEach((pc,i) => {
+    const exist = db.customers.find(c=>c.name.toLowerCase()===(pc.name||'').toLowerCase());
+    const div = document.createElement('div'); div.className = 'parsed-customer-card';
+    div.innerHTML = `
+      <div class="pc-name">${pc.name||'未知客户'} ${exist?'<span class="conflict-badge">更新</span>':'<span class="new-badge">新增</span>'}${heatBadge(pc.heat_level||'cool')}</div>
+      ${pc.country?`<div class="pc-field">国家：<span>${pc.country}</span></div>`:''}
+      ${pc.type?`<div class="pc-field">类型：<span>${pc.type}</span></div>`:''}
+      ${pc.contact?`<div class="pc-field">联系人：<span>${pc.contact}</span></div>`:''}
+      ${pc.required_products?`<div class="pc-field">需求：<span>${pc.required_products}</span></div>`:''}
+      ${pc.next_action?`<div class="pc-field">下一步：<span>${pc.next_action}</span></div>`:''}
+      ${pc.reminder_date?`<div class="pc-field">跟进日期：<span>${pc.reminder_date}</span></div>`:''}
+      <div class="pc-note">${pc.summary||'（无摘要）'}</div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function saveParsedCustomers() {
+  const employee = document.getElementById('parse-employee').value;
+  const date     = document.getElementById('parse-date').value || today();
+  let newCount=0, updatedCount=0;
+
+  parsedCustomers.forEach(pc => {
+    if (!pc.name) return;
+    const interaction = { date, employee, summary:pc.summary||'', next_action:pc.next_action||'' };
+    const existIdx = db.customers.findIndex(c => c.name.toLowerCase()===(pc.name||'').toLowerCase() || (c.name.length>3&&(pc.name||'').toLowerCase().includes(c.name.toLowerCase())));
+    if (existIdx>=0) {
+      const c = db.customers[existIdx];
+      c.heat_level = pc.heat_level || c.heat_level;
+      c.next_action = pc.next_action || c.next_action;
+      if (pc.reminder_date) c.reminder_date = pc.reminder_date;
+      else if (c.follow_cycle) { const b=new Date(date); b.setDate(b.getDate()+c.follow_cycle); c.reminder_date=b.toISOString().split('T')[0]; }
+      if (pc.exhibition_status) c.exhibition_status = pc.exhibition_status;
+      if (pc.country&&!c.country)   c.country = pc.country;
+      if (pc.type&&(!c.type||c.type==='未知')) c.type = pc.type;
+      if (pc.contact&&!c.contact)   c.contact = pc.contact;
+      if (pc.grade&&!c.grade)       c.grade   = pc.grade;
+      if (pc.comm_channel&&!c.comm_channel) c.comm_channel = pc.comm_channel;
+      if (pc.source&&!c.source)     c.source  = pc.source;
+      if (pc.existing_supplier&&!c.existing_supplier) c.existing_supplier = pc.existing_supplier;
+      if (pc.required_products)     c.required_products = pc.required_products;
+      if (pc.purchase_volume)       c.purchase_volume   = pc.purchase_volume;
+      c.interactions = c.interactions||[]; c.interactions.push(interaction);
+      // Extract sample info from parsed data
+      if (pc.sample_info) {
+        c.samples = c.samples||[];
+        c.samples.push({ date, tracking:'', content: pc.sample_info, status:'已寄出', note:'（日报自动提取）' });
+      }
+      c.updated_at = date; c.employee = employee||c.employee; updatedCount++;
+    } else {
+      db.customers.push({
+        id:'c_'+Date.now()+'_'+Math.random().toString(36).slice(2),
+        name:pc.name, country:pc.country||'', type:pc.type||'未知',
+        contact:pc.contact||'', grade:pc.grade||'', comm_channel:pc.comm_channel||'',
+        source:pc.source||'', existing_supplier:pc.existing_supplier||'',
+        required_products:pc.required_products||'', purchase_volume:pc.purchase_volume||'',
+        heat_level:pc.heat_level||'cool', next_action:pc.next_action||'',
+        reminder_date:pc.reminder_date||'', exhibition_status:pc.exhibition_status||'',
+        budget:'', products:'', employee, created_at:date, updated_at:date,
+        interactions:[interaction], notes:[],
+        samples: pc.sample_info ? [{ date, tracking:'', content: pc.sample_info, status:'已寄出', note:'（日报自动提取）' }] : [],
+        follow_cycle:null,
+      });
+      newCount++;
+    }
+  });
+
+  saveData(db); parsedCustomers=[];
+  document.getElementById('save-parsed-btn').disabled=true;
+  document.getElementById('parse-result').innerHTML='<div style="color:var(--cool);padding:20px;text-align:center">✅ 已保存</div>';
+  document.getElementById('report-text').value=''; document.getElementById('save-info').textContent='';
+  renderAll(); showToast(`已保存：新增 ${newCount} 个，更新 ${updatedCount} 个`);
+}
+
+// ════════════════════════════════════════════════════════════
+//  BACKUP REMINDER
+// ════════════════════════════════════════════════════════════
+function initBackupReminder() { checkBackupReminder(); }
+function checkBackupReminder() {
+  const last = localStorage.getItem(BACKUP_LAST_KEY);
+  if (!last) { showBackupBanner(null); return; }
+  const d = Math.floor((Date.now()-new Date(last).getTime())/86400000);
+  if (d >= BACKUP_INTERVAL_DAYS) showBackupBanner(d);
+}
+function showBackupBanner(days) {
+  const msg = document.getElementById('backup-banner-msg');
+  msg.textContent = days ? `⚠️ 已 ${days} 天未备份数据！请立即导出备份，防止数据丢失。` : '⚠️ 尚未进行过数据备份！请立即导出备份，防止数据丢失。';
+  document.getElementById('backup-banner').style.display='flex';
+}
+function dismissBanner() { document.getElementById('backup-banner').style.display='none'; }
+
+// ════════════════════════════════════════════════════════════
+//  EXPORT / IMPORT
+// ════════════════════════════════════════════════════════════
+function exportData() {
+  const payload = { version:2, exported_at:new Date().toISOString(), data:db, settings:{employees:settings.employees} };
+  const blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob); const a = document.createElement('a');
+  a.href=url; a.download=`remica-backup-${today()}.json`; a.click(); URL.revokeObjectURL(url);
+  localStorage.setItem(BACKUP_LAST_KEY, new Date().toISOString());
+  document.getElementById('backup-banner').style.display='none';
+  showToast('已导出备份文件');
+}
+function importData() { document.getElementById('import-file').click(); }
+function handleImport(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const payload = JSON.parse(ev.target.result);
+      if (!payload.data || !payload.data.customers) throw new Error('格式错误');
+
+      const incoming = payload.data.customers || [];
+      const incomingOrders = payload.data.orders || [];
+
+      // Ask user: merge or overwrite
+      const choice = confirm(
+        `文件包含 ${incoming.length} 个客户、${incomingOrders.length} 笔订单。\n\n` +
+        `点击【确定】= 合并导入（保留现有数据，新增不重复客户）\n` +
+        `点击【取消】= 覆盖导入（清空现有数据后替换）`
+      );
+
+      if (choice) {
+        // ── MERGE MODE ──
+        let addedC = 0, skippedC = 0, addedO = 0, skippedO = 0;
+
+        incoming.forEach(nc => {
+          const exists = db.customers.some(ec =>
+            ec.name.trim().toLowerCase() === (nc.name||'').trim().toLowerCase()
+          );
+          if (exists) { skippedC++; }
+          else { db.customers.push(nc); addedC++; }
+        });
+
+        incomingOrders.forEach(no => {
+          const exists = db.orders.some(eo => eo.id === no.id);
+          if (exists) { skippedO++; }
+          else { db.orders.push(no); addedO++; }
+        });
+
+        if (payload.settings?.employees) {
+          payload.settings.employees.forEach(emp => {
+            if (!settings.employees.includes(emp)) settings.employees.push(emp);
+          });
+          saveSettings(settings);
+        }
+
+        saveData(db);
+        renderAll();
+        showToast(`合并完成：新增 ${addedC} 客户（跳过 ${skippedC} 重复）、新增 ${addedO} 订单`);
+
+      } else {
+        // ── OVERWRITE MODE ──
+        if (!confirm(`确定清空现有 ${db.customers.length} 个客户并完全替换吗？此操作不可撤销！`)) return;
+        db = payload.data;
+        if (!db.orders) db.orders = [];
+        if (payload.settings?.employees) { settings.employees = payload.settings.employees; saveSettings(settings); }
+        saveData(db);
+        renderAll();
+        showToast(`已覆盖导入：${db.customers.length} 个客户`);
+      }
+
+    } catch(err) { showToast('导入失败: ' + err.message); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+async function clearAllData() {
+  if (!confirm('确定清空所有数据吗？')) return;
+  const batch = writeBatch(firestore);
+  db.customers.forEach(c => batch.delete(doc(firestore, 'customers', c.id)));
+  db.orders.forEach(o => batch.delete(doc(firestore, 'orders', o.id)));
+  await batch.commit();
+  db={customers:[],orders:[]}; renderAll(); showToast('数据已清空');
+}
+
+// ════════════════════════════════════════════════════════════
+//  WEEKLY REPORT
+// ════════════════════════════════════════════════════════════
+const HELP_KEYWORDS = ['需要领导','领导协助','总经理','老板拍板','高层','决策层','大单','大客户','预算高','预算大','重要客户','价格授权','特殊报价','卡单','卡住','推进困难','阻碍','瓶颈','谈判僵局','无法推进'];
+function customerNeedsHelp(c) {
+  const text = [c.next_action||'',...(c.interactions||[]).map(i=>i.summary||''),...(c.notes||[]).map(n=>n.text||'')].join(' ');
+  return HELP_KEYWORDS.some(kw=>text.includes(kw));
+}
+function updateWeeklyPreviewStats() {
+  const days = parseInt(document.getElementById('weekly-range')?.value||'7',10);
+  const cutoff = getPastDateStr(days), t = today();
+  const customers = db.customers;
+  const active = customers.filter(c=>(c.interactions||[]).some(ia=>ia.date>=cutoff)||c.created_at>=cutoff);
+  const hotWarm = active.filter(c=>c.heat_level==='hot'||c.heat_level==='warm');
+  const newC    = customers.filter(c=>c.created_at>=cutoff);
+  const needHelp= active.filter(c=>customerNeedsHelp(c));
+  document.getElementById('weekly-preview-stats').innerHTML = `
+    <div class="stat-card" style="flex:1;min-width:100px;padding:10px 14px"><div class="stat-num" style="font-size:20px;color:var(--orange)">${active.length}</div><div class="stat-label">期间活跃</div></div>
+    <div class="stat-card" style="flex:1;min-width:100px;padding:10px 14px"><div class="stat-num" style="font-size:20px;color:var(--hot)">${hotWarm.length}</div><div class="stat-label">重点跟进</div></div>
+    <div class="stat-card" style="flex:1;min-width:100px;padding:10px 14px"><div class="stat-num" style="font-size:20px;color:var(--warm)">${needHelp.length}</div><div class="stat-label">需领导协助</div></div>
+    <div class="stat-card" style="flex:1;min-width:100px;padding:10px 14px"><div class="stat-num" style="font-size:20px;color:var(--cool)">${newC.length}</div><div class="stat-label">新增客户</div></div>
+  `;
+}
+async function generateWeeklyReport() {
+  if (!settings.apiKey) { document.getElementById('weekly-api-warning').style.display=''; return; }
+  document.getElementById('weekly-api-warning').style.display='none';
+  const days=parseInt(document.getElementById('weekly-range').value,10), cutoff=getPastDateStr(days), t=today();
+  const customers=db.customers;
+  const active=customers.filter(c=>(c.interactions||[]).some(ia=>ia.date>=cutoff)||c.created_at>=cutoff);
+  const hotWarm=customers.filter(c=>c.heat_level==='hot'||c.heat_level==='warm');
+  const newC=customers.filter(c=>c.created_at>=cutoff);
+  const needHelp=active.filter(c=>customerNeedsHelp(c));
+  const overdue=customers.filter(c=>c.reminder_date&&c.reminder_date<t);
+  function sumC(c) { const recent=(c.interactions||[]).filter(i=>i.date>=cutoff).map(i=>`[${i.date}] ${i.summary||''}`).join(' | '); return `客户：${c.name}（${c.country||''}，${c.type||''}，负责人：${c.employee||'无'}）\n热度：${c.heat_level} | 下一步：${c.next_action||'未填写'} | 跟进日期：${c.reminder_date||'未设置'}\n近期互动：${recent||'无'}`; }
+  const dataBlock = `=== 统计周期：最近${days}天（${cutoff} 至 ${t}）===\n\n【重点跟进客户】共${hotWarm.length}个\n${hotWarm.map(sumC).join('\n---\n')||'无'}\n\n【需要领导协助客户】共${needHelp.length}个\n${needHelp.map(sumC).join('\n---\n')||'无'}\n\n【本期新增客户】共${newC.length}个\n${newC.map(c=>`${c.name}（${c.country||''}，负责人：${c.employee||'无'}，热度：${c.heat_level}）`).join('\n')||'无'}\n\n【逾期未跟进】共${overdue.length}个\n${overdue.map(c=>`${c.name}，应跟进：${c.reminder_date}，负责人：${c.employee||'无'}`).join('\n')||'无'}`.trim();
+  const prompt = `你是一名外贸销售管理助手。请根据以下客户数据生成一份简洁专业的销售周报，供销售经理向上级汇报使用。语言简洁，用中文，输出纯文本格式，使用===、---、【】等符号分隔章节，不使用Markdown。\n\n${dataBlock}`;
+  const btn=document.getElementById('weekly-gen-btn'), status=document.getElementById('weekly-status');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 生成中...'; status.textContent='AI正在分析...';
+  try {
+    const data = await callClaude(settings.apiKey,[{role:'user',content:prompt}],2000);
+    const text = data.content?.[0]?.text||'';
+    const dateRange=`${cutoff} 至 ${t}`;
+    const header=`销售周报\n生成时间：${new Date().toLocaleString('zh-CN')}\n统计范围：${dateRange}\n${'='.repeat(50)}\n\n`;
+    weeklyReportText = header+text;
+    weeklyReportHtml = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>销售周报 · Remica</title><style>body{font-family:'PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:14px;color:#2C2C2C;max-width:860px;margin:40px auto;padding:0 24px;line-height:1.9}.report-header{border-bottom:3px solid #E8431C;padding-bottom:14px;margin-bottom:28px}.report-header h1{font-size:22px;color:#E8431C;margin:0 0 4px}.report-header .meta{font-size:12px;color:#888}.report-body{white-space:pre-wrap}</style></head><body><div class="report-header"><h1>📊 销售周报 · Remica</h1><div class="meta">生成时间：${new Date().toLocaleString('zh-CN')} | 统计范围：${dateRange}</div></div><div class="report-body">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div></body></html>`;
+    document.getElementById('weekly-result-content').textContent=weeklyReportText;
+    document.getElementById('weekly-result-area').style.display='';
+    status.textContent='✅ 周报已生成';
+  } catch(e) { status.innerHTML=`<span style="color:var(--hot)">❌ 失败: ${e.message}</span>`; }
+  finally { btn.disabled=false; btn.innerHTML='✨ 生成周报'; }
+}
+function downloadWeeklyReport() {
+  const fmt=document.getElementById('weekly-format').value, isHtml=fmt==='html';
+  const content=isHtml?weeklyReportHtml:weeklyReportText, mime=isHtml?'text/html':'text/plain', ext=isHtml?'html':'txt';
+  const filename=`sales-weekly-report-${today()}.${ext}`;
+  const blob=new Blob([content],{type:mime+';charset=utf-8'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);
+  showToast(`周报已下载：${filename}`);
+}
+
+// ════════════════════════════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2800);
+}
+</script>
+</body>
+</html>
