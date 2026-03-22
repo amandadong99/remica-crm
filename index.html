@@ -461,9 +461,9 @@ table.data-table tr:hover td { background: #FAFAFA; }
   .backup-banner { flex-wrap: wrap; }
   #backup-banner span { font-size: 11px; }
 }
+.nav-item.admin-only { display: none; }
+.nav-section.admin-only { display: none; }
 </style>
-
-<!-- ══ Login Screen ══ -->
 <style>
 #login-screen {
   display: none; position: fixed; inset: 0; background: var(--bg);
@@ -540,7 +540,7 @@ table.data-table tr:hover td { background: #FAFAFA; }
   <nav>
     <div class="nav-section">概览</div>
     <div class="nav-item active" onclick="switchView('dashboard')"><span class="icon">📊</span> 热度看板</div>
-    <div class="nav-item" onclick="switchView('mgmt')"><span class="icon">🏢</span> 管理看板</div>
+    <div class="nav-item admin-only" onclick="switchView('mgmt')"><span class="icon">🏢</span> 管理看板</div>
     <div class="nav-section">跟进</div>
     <div class="nav-item" onclick="switchView('reminders')"><span class="icon">🔔</span> 跟进提醒<span class="nav-badge" id="reminder-badge" style="display:none">0</span></div>
     <div class="nav-item" onclick="switchView('samples_mgmt')"><span class="icon">🌲</span> 样品管理<span class="nav-badge" id="sample-badge" style="display:none">0</span></div>
@@ -548,11 +548,11 @@ table.data-table tr:hover td { background: #FAFAFA; }
     <div class="nav-section">成交</div>
     <div class="nav-item" onclick="switchView('closed')"><span class="icon">🏆</span> 成交客户</div>
     <div class="nav-item" onclick="switchView('orders')"><span class="icon">📦</span> 订单管理<span class="nav-badge" id="order-badge" style="display:none">0</span></div>
-    <div class="nav-section">工具</div>
-    <div class="nav-item" onclick="switchView('parse')"><span class="icon">📋</span> 解析日报</div>
+    <div class="nav-section admin-only">工具</div>
+    <div class="nav-item admin-only" onclick="switchView('parse')"><span class="icon">📋</span> 解析日报</div>
     <div class="nav-item" onclick="switchView('exhibition')"><span class="icon">🏛️</span> 展会管理</div>
-    <div class="nav-item" onclick="switchView('weekly')"><span class="icon">📝</span> 周报生成</div>
-    <div class="nav-item" onclick="switchView('settings')"><span class="icon">⚙️</span> 设置</div>
+    <div class="nav-item admin-only" onclick="switchView('weekly')"><span class="icon">📝</span> 周报生成</div>
+    <div class="nav-item admin-only" onclick="switchView('settings')"><span class="icon">⚙️</span> 设置</div>
   </nav>
   <div class="sidebar-bottom" style="padding:12px 18px">
     <div id="sidebar-user-name" style="color:#bbb;font-size:11px;font-weight:bold;margin-bottom:2px">加载中...</div>
@@ -1172,6 +1172,11 @@ onAuthStateChanged(auth, async (user) => {
 
     currentUser = user;
     isAdmin = (user.email === ADMIN_EMAIL);
+
+    // Show/hide admin-only nav items
+    document.querySelectorAll('.admin-only').forEach(el => {
+      el.style.display = isAdmin ? '' : 'none';
+    });
 
     // Update sidebar user info
     document.getElementById('sidebar-user-name').textContent = user.displayName || user.email;
