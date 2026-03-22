@@ -592,7 +592,7 @@ table.data-table tr:hover td { background: #FAFAFA; }
       </div>
       <div class="tab-row" style="margin-bottom:16px">
         <button class="tab-btn active" id="dash-tab-heat" onclick="switchDashTab('heat',this)">🔥 按热度</button>
-        <button class="tab-btn" id="dash-tab-employee" onclick="switchDashTab('employee',this)">👤 按业务员</button>
+        <button class="tab-btn admin-only" id="dash-tab-employee" onclick="switchDashTab('employee',this)">👤 按业务员</button>
       </div>
       <div id="heat-board"></div>
       <div id="employee-kanban" style="display:none"></div>
@@ -1496,7 +1496,7 @@ function toggleEmpHeatSection(key) {
 function renderEmployeeKanban() {
   const kanban = document.getElementById('employee-kanban');
   kanban.innerHTML = '';
-  kanban.style.display = '';
+  kanban.style.display = 'block';
   kanban.style.flexDirection = 'column';
   kanban.style.overflow = 'visible';
 
