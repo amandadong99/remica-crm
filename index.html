@@ -970,20 +970,6 @@ async function loadData() {
   return { customers, orders };
 }
 
-async function saveData(data) {
-  // Save all customers and orders in batch
-  const batch = writeBatch(firestore);
-  data.customers.forEach(c => {
-    const ref = doc(firestore, 'customers', c.id);
-    batch.set(ref, { ...c, ownerEmail: c.ownerEmail || currentUser.email });
-  });
-  data.orders.forEach(o => {
-    const ref = doc(firestore, 'orders', o.id);
-    batch.set(ref, { ...o, ownerEmail: o.ownerEmail || currentUser.email });
-  });
-  await batch.commit();
-}
-
 async function saveCustomer(c) {
   await setDoc(doc(firestore, 'customers', c.id), { ...c, ownerEmail: c.ownerEmail || currentUser.email });
 }
