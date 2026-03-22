@@ -2333,6 +2333,7 @@ function openCustomer(id) {
 
   const empOptions = ['', ...settings.employees].map(e => `<option value="${e}" ${c.employee===e?'selected':''}>${e||'— 未分配 —'}</option>`).join('');
   document.getElementById('modal-fields').innerHTML = `
+    <div class="field-item" style="grid-column:1/-1"><label>客户名称</label><input class="meta-input" id="mf-name" value="${c.name||''}" style="width:100%" placeholder="客户公司名称"></div>
     <div class="field-item"><label>国家/地区</label><input class="meta-input" id="mf-country" value="${c.country||''}" style="width:100%" placeholder="如：缅甸"></div>
     <div class="field-item"><label>客户类型</label><input class="meta-input" id="mf-type" value="${c.type||''}" style="width:100%" placeholder="如：经销商"></div>
     <div class="field-item"><label>联系人</label><input class="meta-input" id="mf-contact" value="${c.contact||''}" style="width:100%" placeholder="联系人姓名"></div>
@@ -2421,6 +2422,8 @@ function saveCustomerFields() {
   if (!modalCustomerId) return;
   const c = db.customers.find(x => x.id === modalCustomerId);
   if (!c) return;
+  const newName = document.getElementById('mf-name').value.trim();
+  if (newName) c.name = newName;
   c.country            = document.getElementById('mf-country').value.trim();
   c.type               = document.getElementById('mf-type').value.trim();
   c.contact            = document.getElementById('mf-contact').value.trim();
@@ -2435,7 +2438,8 @@ function saveCustomerFields() {
   c.address            = document.getElementById('mf-address').value.trim();
   c.updated_at = today();
   saveData(db);
-  // Update header meta without closing modal
+  // Update header name and meta without closing modal
+  document.getElementById('modal-customer-name').textContent = c.name;
   document.getElementById('modal-customer-meta').innerHTML = `
     ${heatBadge(c.heat_level)}${gradeBadge(c.grade)}
     <span style="font-size:12px;color:var(--light)">${c.country||''}</span>
