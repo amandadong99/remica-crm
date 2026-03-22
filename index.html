@@ -542,7 +542,6 @@ table.data-table tr:hover td { background: #FAFAFA; }
     <div class="nav-section admin-only">工具</div>
     <div class="nav-item admin-only" onclick="switchView('parse')"><span class="icon">📋</span> 解析日报</div>
     <div class="nav-item" onclick="switchView('exhibition')"><span class="icon">🏛️</span> 展会管理</div>
-    <div class="nav-item admin-only" onclick="switchView('weekly')"><span class="icon">📝</span> 周报生成</div>
     <div class="nav-item admin-only" onclick="switchView('settings')"><span class="icon">⚙️</span> 设置</div>
   </nav>
   <div class="sidebar-bottom" style="padding:12px 18px">
@@ -799,35 +798,6 @@ table.data-table tr:hover td { background: #FAFAFA; }
         <div id="exhibition-stats" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px"></div>
       </div>
       <div id="exhibition-list"></div>
-    </div>
-
-    <!-- ══ WEEKLY REPORT ══ -->
-    <div id="view-weekly" class="view">
-      <div class="card" style="max-width:720px">
-        <div class="card-title">📝 周报生成</div>
-        <p style="font-size:12px;color:var(--light);margin-bottom:14px">基于系统数据，AI 自动汇总客户情况，生成可直接发送给领导的周报。</p>
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
-          <div>
-            <label style="font-size:11px;color:var(--light);margin-right:6px">统计范围</label>
-            <select id="weekly-range" class="meta-select"><option value="7">最近 7 天</option><option value="14">最近 14 天</option><option value="30">最近 30 天</option></select>
-          </div>
-          <div>
-            <label style="font-size:11px;color:var(--light);margin-right:6px">导出格式</label>
-            <select id="weekly-format" class="meta-select"><option value="html">HTML 文件</option><option value="txt">TXT 文件</option></select>
-          </div>
-          <button class="btn btn-primary" id="weekly-gen-btn" onclick="generateWeeklyReport()">✨ 生成周报</button>
-          <div id="weekly-status" style="font-size:12px;color:var(--light)"></div>
-        </div>
-        <div id="weekly-preview-stats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
-        <div id="weekly-result-area" style="display:none">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <span style="font-size:12px;font-weight:bold;color:var(--dark)">生成结果预览</span>
-            <button class="btn btn-primary btn-sm" onclick="downloadWeeklyReport()">⬇️ 下载周报</button>
-          </div>
-          <div id="weekly-result-content" style="background:#FAFAFA;border:1.5px solid var(--border);border-radius:8px;padding:16px;font-size:13px;line-height:1.8;max-height:480px;overflow-y:auto;white-space:pre-wrap;font-family:'PingFang SC','Microsoft YaHei',sans-serif"></div>
-        </div>
-        <div id="weekly-api-warning" style="display:none;margin-top:12px;padding:10px 14px;background:#FFF5F5;border:1px solid #FFCDD2;border-radius:7px;font-size:13px;color:var(--hot)">⚠️ 需要先在 <strong>设置</strong> 页面配置 Claude API Key。</div>
-      </div>
     </div>
 
     <!-- ══ SETTINGS ══ -->
@@ -1172,7 +1142,13 @@ onAuthStateChanged(auth, async (user) => {
 
     // Show/hide admin-only nav items
     document.querySelectorAll('.admin-only').forEach(el => {
-      el.style.display = isAdmin ? '' : 'none';
+      if (!isAdmin) {
+        el.style.display = 'none';
+      } else {
+        if (el.classList.contains('nav-item')) el.style.display = 'flex';
+        else if (el.classList.contains('nav-section')) el.style.display = 'block';
+        else el.style.display = 'block';
+      }
     });
 
     // Update sidebar user info
@@ -1197,7 +1173,6 @@ onAuthStateChanged(auth, async (user) => {
       renderAll();
       checkApiKey();
       initBackupReminder();
-      updateWeeklyPreviewStats();
     } catch(e) {
       document.getElementById('loading-screen').style.display = 'none';
       alert('数据加载失败：' + e.message);
@@ -1267,7 +1242,7 @@ const VIEW_TITLES = {
   dashboard:'热度看板', mgmt:'管理看板', reminders:'跟进提醒',
   customers:'客户列表', closed:'成交客户', orders:'订单管理',
   samples_mgmt:'样品管理',
-  parse:'解析日报', exhibition:'展会管理', weekly:'周报生成', settings:'设置'
+  parse:'解析日报', exhibition:'展会管理', settings:'设置'
 };
 function switchView(v) {
   currentView = v;
@@ -1281,7 +1256,6 @@ function switchView(v) {
   if (v==='closed')    renderClosed();
   if (v==='reminders') renderReminders();
   if (v==='exhibition') renderExhibition();
-  if (v==='weekly')    updateWeeklyPreviewStats();
   if (v==='orders')    renderOrders();
   if (v==='mgmt')      renderMgmtDashboard();
   if (v==='settings')  renderSettings();
@@ -3492,58 +3466,6 @@ function customerNeedsHelp(c) {
   const text = [c.next_action||'',...(c.interactions||[]).map(i=>i.summary||''),...(c.notes||[]).map(n=>n.text||'')].join(' ');
   return HELP_KEYWORDS.some(kw=>text.includes(kw));
 }
-function updateWeeklyPreviewStats() {
-  const days = parseInt(document.getElementById('weekly-range')?.value||'7',10);
-  const cutoff = getPastDateStr(days), t = today();
-  const customers = db.customers;
-  const active = customers.filter(c=>(c.interactions||[]).some(ia=>ia.date>=cutoff)||c.created_at>=cutoff);
-  const hotWarm = active.filter(c=>c.heat_level==='hot'||c.heat_level==='warm');
-  const newC    = customers.filter(c=>c.created_at>=cutoff);
-  const needHelp= active.filter(c=>customerNeedsHelp(c));
-  document.getElementById('weekly-preview-stats').innerHTML = `
-    <div class="stat-card" style="flex:1;min-width:100px;padding:10px 14px"><div class="stat-num" style="font-size:20px;color:var(--orange)">${active.length}</div><div class="stat-label">期间活跃</div></div>
-    <div class="stat-card" style="flex:1;min-width:100px;padding:10px 14px"><div class="stat-num" style="font-size:20px;color:var(--hot)">${hotWarm.length}</div><div class="stat-label">重点跟进</div></div>
-    <div class="stat-card" style="flex:1;min-width:100px;padding:10px 14px"><div class="stat-num" style="font-size:20px;color:var(--warm)">${needHelp.length}</div><div class="stat-label">需领导协助</div></div>
-    <div class="stat-card" style="flex:1;min-width:100px;padding:10px 14px"><div class="stat-num" style="font-size:20px;color:var(--cool)">${newC.length}</div><div class="stat-label">新增客户</div></div>
-  `;
-}
-async function generateWeeklyReport() {
-  if (!settings.apiKey) { document.getElementById('weekly-api-warning').style.display=''; return; }
-  document.getElementById('weekly-api-warning').style.display='none';
-  const days=parseInt(document.getElementById('weekly-range').value,10), cutoff=getPastDateStr(days), t=today();
-  const customers=db.customers;
-  const active=customers.filter(c=>(c.interactions||[]).some(ia=>ia.date>=cutoff)||c.created_at>=cutoff);
-  const hotWarm=customers.filter(c=>c.heat_level==='hot'||c.heat_level==='warm');
-  const newC=customers.filter(c=>c.created_at>=cutoff);
-  const needHelp=active.filter(c=>customerNeedsHelp(c));
-  const overdue=customers.filter(c=>c.reminder_date&&c.reminder_date<t);
-  function sumC(c) { const recent=(c.interactions||[]).filter(i=>i.date>=cutoff).map(i=>`[${i.date}] ${i.summary||''}`).join(' | '); return `客户：${c.name}（${c.country||''}，${c.type||''}，负责人：${c.employee||'无'}）\n热度：${c.heat_level} | 下一步：${c.next_action||'未填写'} | 跟进日期：${c.reminder_date||'未设置'}\n近期互动：${recent||'无'}`; }
-  const dataBlock = `=== 统计周期：最近${days}天（${cutoff} 至 ${t}）===\n\n【重点跟进客户】共${hotWarm.length}个\n${hotWarm.map(sumC).join('\n---\n')||'无'}\n\n【需要领导协助客户】共${needHelp.length}个\n${needHelp.map(sumC).join('\n---\n')||'无'}\n\n【本期新增客户】共${newC.length}个\n${newC.map(c=>`${c.name}（${c.country||''}，负责人：${c.employee||'无'}，热度：${c.heat_level}）`).join('\n')||'无'}\n\n【逾期未跟进】共${overdue.length}个\n${overdue.map(c=>`${c.name}，应跟进：${c.reminder_date}，负责人：${c.employee||'无'}`).join('\n')||'无'}`.trim();
-  const prompt = `你是一名外贸销售管理助手。请根据以下客户数据生成一份简洁专业的销售周报，供销售经理向上级汇报使用。语言简洁，用中文，输出纯文本格式，使用===、---、【】等符号分隔章节，不使用Markdown。\n\n${dataBlock}`;
-  const btn=document.getElementById('weekly-gen-btn'), status=document.getElementById('weekly-status');
-  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 生成中...'; status.textContent='AI正在分析...';
-  try {
-    const data = await callClaude(settings.apiKey,[{role:'user',content:prompt}],2000);
-    const text = data.content?.[0]?.text||'';
-    const dateRange=`${cutoff} 至 ${t}`;
-    const header=`销售周报\n生成时间：${new Date().toLocaleString('zh-CN')}\n统计范围：${dateRange}\n${'='.repeat(50)}\n\n`;
-    weeklyReportText = header+text;
-    weeklyReportHtml = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>销售周报 · Remica</title><style>body{font-family:'PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:14px;color:#2C2C2C;max-width:860px;margin:40px auto;padding:0 24px;line-height:1.9}.report-header{border-bottom:3px solid #E8431C;padding-bottom:14px;margin-bottom:28px}.report-header h1{font-size:22px;color:#E8431C;margin:0 0 4px}.report-header .meta{font-size:12px;color:#888}.report-body{white-space:pre-wrap}</style></head><body><div class="report-header"><h1>📊 销售周报 · Remica</h1><div class="meta">生成时间：${new Date().toLocaleString('zh-CN')} | 统计范围：${dateRange}</div></div><div class="report-body">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div></body></html>`;
-    document.getElementById('weekly-result-content').textContent=weeklyReportText;
-    document.getElementById('weekly-result-area').style.display='';
-    status.textContent='✅ 周报已生成';
-  } catch(e) { status.innerHTML=`<span style="color:var(--hot)">❌ 失败: ${e.message}</span>`; }
-  finally { btn.disabled=false; btn.innerHTML='✨ 生成周报'; }
-}
-function downloadWeeklyReport() {
-  const fmt=document.getElementById('weekly-format').value, isHtml=fmt==='html';
-  const content=isHtml?weeklyReportHtml:weeklyReportText, mime=isHtml?'text/html':'text/plain', ext=isHtml?'html':'txt';
-  const filename=`sales-weekly-report-${today()}.${ext}`;
-  const blob=new Blob([content],{type:mime+';charset=utf-8'});
-  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);
-  showToast(`周报已下载：${filename}`);
-}
-
 // ════════════════════════════════════════════════════════════
 //  TOAST
 // ════════════════════════════════════════════════════════════
@@ -3928,7 +3850,6 @@ Object.assign(window, {
   parseReport, saveParsedCustomers,
   saveApiKey, testApiKey, addEmployee, removeEmployee,
   exportData, importData, handleImport, clearAllData,
-  generateWeeklyReport, downloadWeeklyReport, updateWeeklyPreviewStats,
   renderExhibition, dismissBanner,
   togglePriority, toggleHeatSection, toggleEmpSection, toggleEmpHeatSection,
   renderSamplesMgmt, openNewSampleModal, editSampleModal,
