@@ -1865,6 +1865,21 @@ function buildOrderCard(o) {
 
   const div = document.createElement('div');
   div.className = 'order-card';
+
+  // Mini progress bar
+  const totalStages = STAGES.length;
+  const currentStep = stageIdx + 1;
+  const progressPct = Math.round(currentStep / totalStages * 100);
+  const stageColors = { confirmed:'#1565C0', production:'#E65100', inspection:'#6A1B9A', customs:'#BF360C', transit:'#1B5E20', arrived:'#006064', completed:'#424242' };
+  const barColor = stageColors[o.stage] || 'var(--orange)';
+  const miniSteps = STAGES.map((s,i) => {
+    const done = i < stageIdx;
+    const active = i === stageIdx;
+    const bg = done ? barColor : active ? barColor : '#E0E0E0';
+    const opacity = done ? '1' : active ? '1' : '0.25';
+    return `<div style="flex:1;height:4px;background:${bg};opacity:${opacity};border-radius:2px"></div>`;
+  }).join('<div style="width:2px"></div>');
+
   div.innerHTML = `
     <div class="order-card-header" onclick="toggleOrderBody('${o.id}')">
       <div style="font-size:16px">${stageDef.icon}</div>
@@ -1884,6 +1899,8 @@ function buildOrderCard(o) {
           ${totalAmt?`<span style="font-size:12px;color:var(--mid)">已收 $${totalPaid.toLocaleString()} (${paidPct}%)</span>`:''}
           ${remaining&&paidPct<100?`<span style="font-size:12px;color:var(--hot)">应收 $${remaining.toLocaleString()}</span>`:''}
         </div>
+        <div style="display:flex;align-items:center;gap:2px;margin-top:7px">${miniSteps}</div>
+        <div style="font-size:10px;color:var(--light);margin-top:2px">${currentStep}/${totalStages} · ${stageDef.label}</div>
       </div>
       <div style="font-size:12px;color:var(--light)">▼</div>
     </div>
