@@ -547,6 +547,7 @@ table.data-table tr:hover td { background: #FAFAFA; }
     <div class="nav-section">成交</div>
     <div class="nav-item" onclick="switchView('closed')"><span class="icon">🏆</span> 成交客户</div>
     <div class="nav-item" onclick="switchView('orders')"><span class="icon">📦</span> 订单管理<span class="nav-badge" id="order-badge" style="display:none">0</span></div>
+    <div class="nav-item" onclick="switchView('samples_mgmt')"><span class="icon">🧪</span> 样品管理<span class="nav-badge" id="sample-badge" style="display:none">0</span></div>
     <div class="nav-section">工具</div>
     <div class="nav-item" onclick="switchView('parse')"><span class="icon">📋</span> 解析日报</div>
     <div class="nav-item" onclick="switchView('exhibition')"><span class="icon">🏛️</span> 展会管理</div>
@@ -698,6 +699,27 @@ table.data-table tr:hover td { background: #FAFAFA; }
         <div style="margin-left:auto;font-size:12px;color:var(--light)" id="order-count"></div>
       </div>
       <div id="orders-container"></div>
+    </div>
+
+    <!-- ══ SAMPLES MGMT ══ -->
+    <div id="view-samples_mgmt" class="view">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+        <input type="text" class="search-input" id="sample-mgmt-search" placeholder="🔍 搜索样品/客户..." oninput="renderSamplesMgmt()">
+        <select class="meta-select" id="sample-mgmt-status" onchange="renderSamplesMgmt()">
+          <option value="active">进行中（未完结）</option>
+          <option value="all">全部样品</option>
+          <option value="待寄出">待寄出</option>
+          <option value="已寄出">已寄出</option>
+          <option value="已签收">已签收</option>
+          <option value="客户已反馈">客户已反馈</option>
+        </select>
+        <select class="meta-select" id="sample-mgmt-employee" onchange="renderSamplesMgmt()">
+          <option value="">全部业务员</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="openNewSampleModal()">＋ 新建样品</button>
+        <div style="margin-left:auto;font-size:12px;color:var(--light)" id="sample-mgmt-count"></div>
+      </div>
+      <div id="samples-mgmt-container"></div>
     </div>
 
     <!-- ══ PARSE ══ -->
@@ -974,6 +996,21 @@ table.data-table tr:hover td { background: #FAFAFA; }
   </div>
 </div>
 
+<!-- ══════════════════ SAMPLE MODAL ══════════════════ -->
+<div id="sample-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1200;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;width:560px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.18)" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="sample-modal-title">新建样品</h2>
+      <button class="modal-close" onclick="closeSampleModal()">✕</button>
+    </div>
+    <div class="modal-body" id="sample-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-sm" onclick="closeSampleModal()">取消</button>
+      <button class="btn btn-primary btn-sm" onclick="saveSampleModal()">💾 保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"></div>
 <script type="module">
@@ -1138,8 +1175,10 @@ function renderAll() {
   renderExhibition();
   renderOrders();
   renderSettings();
+  renderSamplesMgmt();
   updateReminderBadge();
   updateOrderBadge();
+  updateSampleBadge();
 }
 
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -1162,6 +1201,7 @@ function getPastDateStr(days) { const d = new Date(); d.setDate(d.getDate()-days
 const VIEW_TITLES = {
   dashboard:'热度看板', mgmt:'管理看板', reminders:'跟进提醒',
   customers:'客户列表', closed:'成交客户', orders:'订单管理',
+  samples_mgmt:'样品管理',
   parse:'解析日报', exhibition:'展会管理', weekly:'周报生成', settings:'设置'
 };
 function switchView(v) {
@@ -1180,6 +1220,7 @@ function switchView(v) {
   if (v==='orders')    renderOrders();
   if (v==='mgmt')      renderMgmtDashboard();
   if (v==='settings')  renderSettings();
+  if (v==='samples_mgmt') renderSamplesMgmt();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -3006,7 +3047,211 @@ function showToast(msg) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  EXPOSE FUNCTIONS TO GLOBAL SCOPE (required for type=module)
+//  SAMPLES MANAGEMENT
+// ════════════════════════════════════════════════════════════
+const SAMPLE_STATUSES = ['待寄出','已寄出','已签收','客户已反馈'];
+const SAMPLE_STATUS_COLORS = {
+  '待寄出':  { bg:'#FFF3E0', color:'#E65100' },
+  '已寄出':  { bg:'#E3F2FD', color:'#1565C0' },
+  '已签收':  { bg:'#E8F5E9', color:'#2E7D32' },
+  '客户已反馈': { bg:'#F3E5F5', color:'#6A1B9A' },
+};
+
+function getAllSamples() {
+  const all = [];
+  db.customers.forEach(c => {
+    (c.samples||[]).forEach((s, idx) => {
+      all.push({ ...s, customerId: c.id, customerName: c.name, customerEmployee: c.employee||'', sampleIdx: idx });
+    });
+  });
+  return all;
+}
+
+function updateSampleBadge() {
+  const active = getAllSamples().filter(s => s.status !== '客户已反馈');
+  const badge = document.getElementById('sample-badge');
+  if (!badge) return;
+  if (active.length > 0) { badge.textContent = active.length; badge.style.display = ''; }
+  else badge.style.display = 'none';
+}
+
+function renderSamplesMgmt() {
+  // Update employee filter
+  const empSel = document.getElementById('sample-mgmt-employee');
+  if (empSel && empSel.options.length <= 1) {
+    settings.employees.forEach(e => {
+      const opt = document.createElement('option'); opt.value = e; opt.textContent = e;
+      empSel.appendChild(opt);
+    });
+  }
+
+  const q      = (document.getElementById('sample-mgmt-search')?.value||'').toLowerCase();
+  const status = document.getElementById('sample-mgmt-status')?.value||'active';
+  const emp    = document.getElementById('sample-mgmt-employee')?.value||'';
+
+  let list = getAllSamples().filter(s => {
+    if (status === 'active' && s.status === '客户已反馈') return false;
+    if (status !== 'active' && status !== 'all' && s.status !== status) return false;
+    if (emp && s.customerEmployee !== emp) return false;
+    if (q) { const hay = `${s.customerName} ${s.content||''} ${s.tracking||''}`.toLowerCase(); if (!hay.includes(q)) return false; }
+    return true;
+  }).sort((a,b) => (b.date||'').localeCompare(a.date||''));
+
+  document.getElementById('sample-mgmt-count').textContent = `共 ${list.length} 条`;
+  const container = document.getElementById('samples-mgmt-container');
+  if (!list.length) { container.innerHTML = `<div class="empty-state"><div class="empty-icon">🧪</div><p>暂无样品记录</p></div>`; return; }
+
+  container.innerHTML = '';
+  list.forEach(s => {
+    const sc = SAMPLE_STATUS_COLORS[s.status]||{bg:'#F5F5F5',color:'#666'};
+    const statusBtns = SAMPLE_STATUSES.map(st =>
+      `<button onclick="updateSampleStatusMgmt('${s.customerId}',${s.sampleIdx},'${st}')" style="padding:3px 10px;border-radius:99px;border:1.5px solid ${st===s.status?sc.color:'#ddd'};background:${st===s.status?sc.bg:'#fff'};color:${st===s.status?sc.color:'#888'};font-size:11px;cursor:pointer;font-weight:${st===s.status?'bold':'normal'}">${st}</button>`
+    ).join('');
+
+    const div = document.createElement('div');
+    div.style.cssText = 'background:#fff;border:1px solid #E0E0E0;border-radius:10px;padding:14px 16px;margin-bottom:10px';
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+        <span style="font-weight:bold;font-size:13px;cursor:pointer;color:var(--orange-dark)" onclick="openCustomer('${s.customerId}')">${s.customerName}</span>
+        <span style="font-size:11px;background:${sc.bg};color:${sc.color};padding:2px 8px;border-radius:99px;font-weight:bold">${s.status}</span>
+        ${s.customerEmployee?`<span style="font-size:11px;color:#888">${s.customerEmployee}</span>`:''}
+        <span style="margin-left:auto;font-size:11px;color:#aaa">${s.date||''}</span>
+      </div>
+      <div style="font-size:13px;color:#333;margin-bottom:6px">${s.content||'—'}</div>
+      ${s.tracking?`<div style="font-size:11px;color:#888;margin-bottom:6px">📮 快递单号：${s.tracking}</div>`:''}
+      ${s.note?`<div style="font-size:11px;color:#888;margin-bottom:8px;background:#F9F9F9;border-radius:5px;padding:5px 8px">💬 ${s.note}</div>`:''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${statusBtns}</div>
+      ${s.status==='客户已反馈'?`
+      <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+        <input class="meta-input" id="feedback-${s.customerId}-${s.sampleIdx}" value="${s.feedback_note||''}" placeholder="填写客户反馈内容..." style="flex:1;font-size:12px">
+        <button class="btn btn-primary btn-sm" onclick="saveSampleFeedback('${s.customerId}',${s.sampleIdx})">保存反馈</button>
+      </div>`:''}
+      <div style="display:flex;justify-content:flex-end;margin-top:6px">
+        <button class="btn btn-secondary btn-sm" onclick="editSampleModal('${s.customerId}',${s.sampleIdx})">✏️ 编辑</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function updateSampleStatusMgmt(customerId, idx, status) {
+  const c = db.customers.find(x => x.id === customerId);
+  if (!c || !c.samples || !c.samples[idx]) return;
+  c.samples[idx].status = status;
+  c.updated_at = today();
+  saveData(db);
+  renderSamplesMgmt();
+  updateSampleBadge();
+  showToast('状态已更新');
+}
+
+function saveSampleFeedback(customerId, idx) {
+  const c = db.customers.find(x => x.id === customerId);
+  if (!c || !c.samples || !c.samples[idx]) return;
+  const val = document.getElementById(`feedback-${customerId}-${idx}`)?.value.trim();
+  c.samples[idx].feedback_note = val;
+  c.updated_at = today();
+  saveData(db);
+  showToast('反馈已保存');
+}
+
+let editingSampleCustomerId = null;
+let editingSampleIdx = null;
+
+function openNewSampleModal() {
+  editingSampleCustomerId = null;
+  editingSampleIdx = null;
+  document.getElementById('sample-modal-title').textContent = '新建样品';
+  renderSampleForm(null, null);
+  document.getElementById('sample-modal-overlay').style.display = 'flex';
+}
+
+function editSampleModal(customerId, idx) {
+  editingSampleCustomerId = customerId;
+  editingSampleIdx = idx;
+  const c = db.customers.find(x => x.id === customerId);
+  const s = c?.samples?.[idx];
+  document.getElementById('sample-modal-title').textContent = '编辑样品';
+  renderSampleForm(s, customerId);
+  document.getElementById('sample-modal-overlay').style.display = 'flex';
+}
+
+function renderSampleForm(s, preCustomerId) {
+  const custOptions = db.customers.map(c =>
+    `<option value="${c.id}" ${(preCustomerId||s?.customerId)===c.id?'selected':''}>${c.name}${c.country?' ('+c.country+')':''}</option>`
+  ).join('');
+  const statusOptions = SAMPLE_STATUSES.map(st =>
+    `<option value="${st}" ${(s?.status||'待寄出')===st?'selected':''}>${st}</option>`
+  ).join('');
+  document.getElementById('sample-modal-body').innerHTML = `
+    <div class="field-grid" style="gap:10px 16px">
+      <div class="field-item" style="grid-column:1/-1"><label>关联客户 *</label>
+        <select class="meta-select" id="sf-customer" style="width:100%">
+          <option value="">-- 选择客户 --</option>${custOptions}
+        </select>
+      </div>
+      <div class="field-item" style="grid-column:1/-1"><label>样品内容 *</label>
+        <input class="meta-input" id="sf-content" value="${s?.content||''}" style="width:100%" placeholder="如：HPL 0.8mm 哑光白 3张">
+      </div>
+      <div class="field-item"><label>寄出日期</label>
+        <input class="meta-input" id="sf-date" type="date" value="${s?.date||today()}" style="width:100%">
+      </div>
+      <div class="field-item"><label>当前状态</label>
+        <select class="meta-select" id="sf-status" style="width:100%">${statusOptions}</select>
+      </div>
+      <div class="field-item" style="grid-column:1/-1"><label>快递单号</label>
+        <input class="meta-input" id="sf-tracking" value="${s?.tracking||''}" style="width:100%" placeholder="快递单号">
+      </div>
+      <div class="field-item" style="grid-column:1/-1"><label>备注</label>
+        <input class="meta-input" id="sf-note" value="${s?.note||''}" style="width:100%" placeholder="备注信息">
+      </div>
+    </div>
+  `;
+}
+
+function saveSampleModal() {
+  const customerId = document.getElementById('sf-customer').value;
+  const content    = document.getElementById('sf-content').value.trim();
+  if (!customerId) { showToast('请选择客户'); return; }
+  if (!content)    { showToast('请填写样品内容'); return; }
+  const c = db.customers.find(x => x.id === customerId);
+  if (!c) return;
+  c.samples = c.samples || [];
+  const record = {
+    date:     document.getElementById('sf-date').value || today(),
+    content,
+    status:   document.getElementById('sf-status').value,
+    tracking: document.getElementById('sf-tracking').value.trim(),
+    note:     document.getElementById('sf-note').value.trim(),
+  };
+  if (editingSampleCustomerId && editingSampleIdx !== null) {
+    // Edit existing — may have moved to different customer
+    if (editingSampleCustomerId !== customerId) {
+      const oldC = db.customers.find(x => x.id === editingSampleCustomerId);
+      if (oldC?.samples) oldC.samples.splice(editingSampleIdx, 1);
+      c.samples.push(record);
+    } else {
+      c.samples[editingSampleIdx] = { ...c.samples[editingSampleIdx], ...record };
+    }
+  } else {
+    c.samples.push(record);
+  }
+  c.updated_at = today();
+  saveData(db);
+  closeSampleModal();
+  renderSamplesMgmt();
+  updateSampleBadge();
+  showToast(editingSampleCustomerId ? '样品已更新' : '样品已创建');
+}
+
+function closeSampleModal() {
+  document.getElementById('sample-modal-overlay').style.display = 'none';
+  editingSampleCustomerId = null;
+  editingSampleIdx = null;
+}
+document.getElementById('sample-modal-overlay').addEventListener('click', function(e){ if(e.target===this) closeSampleModal(); });
+
+// ════════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════
 Object.assign(window, {
   switchView, switchDashTab, switchReminderTab,
@@ -3025,6 +3270,9 @@ Object.assign(window, {
   generateWeeklyReport, downloadWeeklyReport, updateWeeklyPreviewStats,
   renderExhibition, dismissBanner,
   togglePriority,
+  renderSamplesMgmt, openNewSampleModal, editSampleModal,
+  saveSampleModal, closeSampleModal,
+  updateSampleStatusMgmt, saveSampleFeedback,
 });
 </script>
 </body>
