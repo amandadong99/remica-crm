@@ -543,11 +543,11 @@ table.data-table tr:hover td { background: #FAFAFA; }
     <div class="nav-item" onclick="switchView('mgmt')"><span class="icon">🏢</span> 管理看板</div>
     <div class="nav-section">跟进</div>
     <div class="nav-item" onclick="switchView('reminders')"><span class="icon">🔔</span> 跟进提醒<span class="nav-badge" id="reminder-badge" style="display:none">0</span></div>
+    <div class="nav-item" onclick="switchView('samples_mgmt')"><span class="icon">🌲</span> 样品管理<span class="nav-badge" id="sample-badge" style="display:none">0</span></div>
     <div class="nav-item" onclick="switchView('customers')"><span class="icon">👥</span> 客户列表</div>
     <div class="nav-section">成交</div>
     <div class="nav-item" onclick="switchView('closed')"><span class="icon">🏆</span> 成交客户</div>
     <div class="nav-item" onclick="switchView('orders')"><span class="icon">📦</span> 订单管理<span class="nav-badge" id="order-badge" style="display:none">0</span></div>
-    <div class="nav-item" onclick="switchView('samples_mgmt')"><span class="icon">🧪</span> 样品管理<span class="nav-badge" id="sample-badge" style="display:none">0</span></div>
     <div class="nav-section">工具</div>
     <div class="nav-item" onclick="switchView('parse')"><span class="icon">📋</span> 解析日报</div>
     <div class="nav-item" onclick="switchView('exhibition')"><span class="icon">🏛️</span> 展会管理</div>
@@ -610,11 +610,44 @@ table.data-table tr:hover td { background: #FAFAFA; }
 
     <!-- ══ MANAGEMENT DASHBOARD ══ -->
     <div id="view-mgmt" class="view">
-      <div class="mgmt-stat-row" id="mgmt-stat-row"></div>
-      <div class="card">
-        <div class="card-title">👤 业务员客户统计</div>
-        <div id="mgmt-employee-stats"></div>
+      <!-- Row 1: stat cards + daily report -->
+      <div style="display:grid;grid-template-columns:1fr 380px;gap:16px;margin-bottom:16px;align-items:start">
+        <div>
+          <div class="mgmt-stat-row" id="mgmt-stat-row"></div>
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title">👤 业务员客户统计</div>
+            <div id="mgmt-employee-stats"></div>
+          </div>
+        </div>
+        <!-- Daily report panel -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title" style="justify-content:space-between">
+            <span>📋 员工日报</span>
+            <input type="date" id="mgmt-report-date" class="meta-input" style="width:140px;font-size:11px" onchange="renderMgmtDailyReport()">
+          </div>
+          <div id="mgmt-daily-report"></div>
+        </div>
       </div>
+
+      <!-- Row 2: activity stats -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+          <div class="card-title" style="margin-bottom:0">📊 员工活跃度</div>
+          <div class="tab-row" style="margin-bottom:0;border:none">
+            <button class="tab-btn active" id="act-tab-today" onclick="switchActivityTab('today',this)">今日</button>
+            <button class="tab-btn" id="act-tab-week" onclick="switchActivityTab('week',this)">本周</button>
+            <button class="tab-btn" id="act-tab-month" onclick="switchActivityTab('month',this)">本月</button>
+          </div>
+          <div id="act-date-picker" style="display:none;gap:8px;align-items:center">
+            <select class="meta-select" id="act-week-sel" style="font-size:12px" onchange="renderMgmtActivity()"></select>
+          </div>
+          <div id="act-month-picker" style="display:none;gap:8px;align-items:center">
+            <select class="meta-select" id="act-month-sel" style="font-size:12px" onchange="renderMgmtActivity()"></select>
+          </div>
+        </div>
+        <div id="mgmt-activity-stats"></div>
+      </div>
+
       <div class="mgmt-grid">
         <div class="card">
           <div class="card-title">🌍 客户国家分布（总数排名）</div>
@@ -661,6 +694,7 @@ table.data-table tr:hover td { background: #FAFAFA; }
           <option value="C">C</option>
           <option value="D">D</option>
         </select>
+        <button class="btn btn-primary btn-sm" onclick="openNewCustomerModal()">＋ 新增客户</button>
         <div style="margin-left:auto;font-size:12px;color:var(--light)" id="customer-count"></div>
       </div>
       <div id="customer-list-container"></div>
@@ -993,6 +1027,21 @@ table.data-table tr:hover td { background: #FAFAFA; }
     </div>
     <div class="modal-body" id="order-modal-body"></div>
     <div class="modal-footer" id="order-modal-footer"></div>
+  </div>
+</div>
+
+<!-- ══════════════════ NEW CUSTOMER MODAL ══════════════════ -->
+<div id="new-customer-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1300;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;width:600px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.18)" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2>＋ 新增客户</h2>
+      <button class="modal-close" onclick="closeNewCustomerModal()">✕</button>
+    </div>
+    <div class="modal-body" id="new-customer-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-sm" onclick="closeNewCustomerModal()">取消</button>
+      <button class="btn btn-primary btn-sm" onclick="saveNewCustomer()">💾 创建客户</button>
+    </div>
   </div>
 </div>
 
@@ -1696,19 +1745,174 @@ function renderMgmtDashboard() {
     wrapper.appendChild(donutWrap);
     empEl.appendChild(wrapper);
   });
+
+  // Init daily report date picker and render
+  const reportDateEl = document.getElementById('mgmt-report-date');
+  if (reportDateEl && !reportDateEl.value) reportDateEl.value = today();
+  renderMgmtDailyReport();
+
+  // Init activity tab
+  initActivityPickers();
+  renderMgmtActivity();
+}
+
+// ════════════════════════════════════════════════════════════
+//  DAILY REPORT
+// ════════════════════════════════════════════════════════════
+function renderMgmtDailyReport() {
+  const date = document.getElementById('mgmt-report-date')?.value || today();
+  const el = document.getElementById('mgmt-daily-report');
+  if (!el) return;
+
+  const emps = settings.employees.length ? settings.employees : [...new Set(db.customers.map(c=>c.employee).filter(Boolean))];
+  let html = '';
+
+  emps.forEach(emp => {
+    const newCusts = db.customers.filter(c => c.employee === emp && c.created_at === date);
+    const interactions = [];
+    db.customers.forEach(c => {
+      (c.interactions||[]).forEach(ia => {
+        if (ia.date === date && ia.employee === emp) {
+          interactions.push({ customerName: c.name, summary: ia.summary||'', next_action: ia.next_action||'' });
+        }
+      });
+    });
+    if (!newCusts.length && !interactions.length) return;
+    html += `<div style="border-bottom:1px solid #F0F0F0;padding:10px 0;margin-bottom:4px">
+      <div style="font-weight:bold;font-size:12px;color:var(--dark);margin-bottom:6px">👤 ${emp}
+        <span style="font-weight:normal;color:var(--light);font-size:11px;margin-left:6px">互动${interactions.length}客户${newCusts.length?' · 新增'+newCusts.length+'客户':''}</span>
+      </div>`;
+    if (newCusts.length) {
+      html += `<div style="font-size:11px;color:var(--cool);margin-bottom:5px">✨ 新增：${newCusts.map(c=>c.name).join('、')}</div>`;
+    }
+    interactions.forEach(ia => {
+      html += `<div style="margin-bottom:6px;padding:6px 8px;background:#FAFAFA;border-radius:6px;border-left:3px solid var(--orange-light)">
+        <div style="font-size:11px;font-weight:bold;color:var(--dark);margin-bottom:2px">${ia.customerName}</div>
+        ${ia.summary?`<div style="font-size:11px;color:var(--mid);line-height:1.5">${ia.summary}</div>`:''}
+        ${ia.next_action?`<div style="font-size:10px;color:var(--orange-dark);margin-top:2px">→ ${ia.next_action}</div>`:''}
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  el.innerHTML = html || `<div style="color:var(--light);font-size:12px;padding:20px 0;text-align:center">该日期暂无记录</div>`;
+}
+
+// ════════════════════════════════════════════════════════════
+//  ACTIVITY STATS
+// ════════════════════════════════════════════════════════════
+let activityTab = 'today';
+
+function initActivityPickers() {
+  const weekSel = document.getElementById('act-week-sel');
+  if (weekSel && !weekSel.options.length) {
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now); d.setDate(d.getDate() - i*7);
+      const monday = new Date(d); monday.setDate(d.getDate() - ((d.getDay()+6)%7));
+      const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+      const fmt = x => `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+      const opt = document.createElement('option');
+      opt.value = fmt(monday)+'|'+fmt(sunday);
+      opt.textContent = `${fmt(monday)} ~ ${fmt(sunday)}`;
+      if (i===0) opt.selected = true;
+      weekSel.appendChild(opt);
+    }
+  }
+  const monthSel = document.getElementById('act-month-sel');
+  if (monthSel && !monthSel.options.length) {
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const opt = document.createElement('option');
+      opt.value = ym; opt.textContent = `${d.getFullYear()}年${d.getMonth()+1}月`;
+      if (i===0) opt.selected = true;
+      monthSel.appendChild(opt);
+    }
+  }
+}
+
+function switchActivityTab(tab, el) {
+  activityTab = tab;
+  document.querySelectorAll('#view-mgmt .tab-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('act-date-picker').style.display  = tab==='week'  ? 'flex' : 'none';
+  document.getElementById('act-month-picker').style.display = tab==='month' ? 'flex' : 'none';
+  renderMgmtActivity();
+}
+
+function renderMgmtActivity() {
+  const t = today();
+  let startDate, endDate;
+  if (activityTab === 'today') {
+    startDate = endDate = t;
+  } else if (activityTab === 'week') {
+    const parts = (document.getElementById('act-week-sel')?.value||'').split('|');
+    startDate = parts[0]||t; endDate = parts[1]||t;
+  } else {
+    const ym = document.getElementById('act-month-sel')?.value || t.substring(0,7);
+    const last = new Date(parseInt(ym.split('-')[0]), parseInt(ym.split('-')[1]), 0);
+    startDate = ym+'-01';
+    endDate = `${last.getFullYear()}-${String(last.getMonth()+1).padStart(2,'0')}-${String(last.getDate()).padStart(2,'0')}`;
+  }
+
+  const emps = settings.employees.length ? settings.employees : [...new Set(db.customers.map(c=>c.employee).filter(Boolean))];
+  const el = document.getElementById('mgmt-activity-stats');
+  if (!el) return;
+
+  const rows = emps.map(emp => {
+    const interactedIds = new Set();
+    let totalIA = 0;
+    db.customers.forEach(c => {
+      (c.interactions||[]).forEach(ia => {
+        if (ia.employee===emp && ia.date>=startDate && ia.date<=endDate) { interactedIds.add(c.id); totalIA++; }
+      });
+    });
+    const newCount = db.customers.filter(c => c.employee===emp && c.created_at>=startDate && c.created_at<=endDate).length;
+    return { emp, interacted: interactedIds.size, newCount, totalIA };
+  }).filter(r => r.interacted>0 || r.newCount>0);
+
+  if (!rows.length) { el.innerHTML = `<div style="color:var(--light);font-size:12px;padding:16px 0;text-align:center">该时间段暂无活跃记录</div>`; return; }
+
+  const maxIA = Math.max(...rows.map(r=>r.interacted), 1);
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:90px 1fr 100px 100px 100px;gap:0;border-bottom:2px solid var(--border);padding:6px 10px;font-size:11px;color:var(--light);font-weight:600">
+      <div>业务员</div><div>互动频次</div>
+      <div style="text-align:center">互动客户</div>
+      <div style="text-align:center">互动次数</div>
+      <div style="text-align:center">新增客户</div>
+    </div>
+    ${rows.map(r=>`
+      <div style="display:grid;grid-template-columns:90px 1fr 100px 100px 100px;gap:0;align-items:center;padding:10px 10px;border-bottom:1px solid #F0F0F0">
+        <div style="font-weight:bold;font-size:13px">${r.emp}</div>
+        <div style="padding-right:16px">
+          <div style="background:#F0F0F0;border-radius:99px;height:8px;overflow:hidden">
+            <div style="width:${Math.round(r.interacted/maxIA*100)}%;height:100%;background:var(--orange);border-radius:99px"></div>
+          </div>
+        </div>
+        <div style="text-align:center;font-size:18px;font-weight:bold;color:var(--orange)">${r.interacted}</div>
+        <div style="text-align:center;font-size:16px;font-weight:bold;color:var(--mid)">${r.totalIA}</div>
+        <div style="text-align:center;font-size:18px;font-weight:bold;color:var(--cool)">+${r.newCount}</div>
+      </div>`).join('')}
+  `;
 }
 
 // ════════════════════════════════════════════════════════════
 //  CUSTOMER LIST
 // ════════════════════════════════════════════════════════════
 function renderCustomerFilters() {
+  // Merge settings.employees with actual employees in data
+  const empFromData = [...new Set(db.customers.map(c=>c.employee).filter(Boolean))];
+  const allEmps = [...new Set([...settings.employees, ...empFromData])].sort();
+
   ['filter-employee','parse-employee','closed-filter-employee','filter-order-employee'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     const cur = sel.value;
     const isFilter = id.startsWith('filter') || id.startsWith('closed');
     sel.innerHTML = isFilter ? '<option value="">全部业务员</option>' : '<option value="">-- 选择业务员 --</option>';
-    settings.employees.forEach(e => sel.innerHTML += `<option value="${e}">${e}</option>`);
+    allEmps.forEach(e => sel.innerHTML += `<option value="${e}">${e}</option>`);
     sel.value = cur;
   });
 }
@@ -3177,18 +3381,21 @@ function editSampleModal(customerId, idx) {
 }
 
 function renderSampleForm(s, preCustomerId) {
-  const custOptions = db.customers.map(c =>
-    `<option value="${c.id}" ${(preCustomerId||s?.customerId)===c.id?'selected':''}>${c.name}${c.country?' ('+c.country+')':''}</option>`
-  ).join('');
   const statusOptions = SAMPLE_STATUSES.map(st =>
     `<option value="${st}" ${(s?.status||'待寄出')===st?'selected':''}>${st}</option>`
   ).join('');
+
+  // Pre-fill customer name if editing
+  const preCustomer = preCustomerId ? db.customers.find(c=>c.id===preCustomerId) : null;
+  const preCustomerName = preCustomer ? preCustomer.name : '';
+
   document.getElementById('sample-modal-body').innerHTML = `
     <div class="field-grid" style="gap:10px 16px">
-      <div class="field-item" style="grid-column:1/-1"><label>关联客户 *</label>
-        <select class="meta-select" id="sf-customer" style="width:100%">
-          <option value="">-- 选择客户 --</option>${custOptions}
-        </select>
+      <div class="field-item" style="grid-column:1/-1;position:relative">
+        <label>关联客户 *</label>
+        <input class="meta-input" id="sf-customer-search" value="${preCustomerName}" style="width:100%" placeholder="输入客户名称搜索..." oninput="filterSampleCustomers()" autocomplete="off">
+        <input type="hidden" id="sf-customer" value="${preCustomerId||''}">
+        <div id="sf-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:999;max-height:200px;overflow-y:auto;margin-top:2px"></div>
       </div>
       <div class="field-item" style="grid-column:1/-1"><label>样品内容 *</label>
         <input class="meta-input" id="sf-content" value="${s?.content||''}" style="width:100%" placeholder="如：HPL 0.8mm 哑光白 3张">
@@ -3207,6 +3414,46 @@ function renderSampleForm(s, preCustomerId) {
       </div>
     </div>
   `;
+
+  // Close dropdown when clicking outside
+  setTimeout(() => {
+    document.addEventListener('click', closeSampleDropdown, true);
+  }, 100);
+}
+
+function filterSampleCustomers() {
+  const q = (document.getElementById('sf-customer-search')?.value||'').toLowerCase();
+  const dropdown = document.getElementById('sf-customer-dropdown');
+  if (!dropdown) return;
+
+  const matches = db.customers.filter(c => c.name.toLowerCase().includes(q) || (c.country||'').toLowerCase().includes(q)).slice(0, 20);
+
+  if (!q || !matches.length) { dropdown.style.display = 'none'; return; }
+
+  dropdown.style.display = 'block';
+  dropdown.innerHTML = matches.map(c => `
+    <div onclick="selectSampleCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}','${c.country||''}')"
+      style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #F5F5F5"
+      onmouseover="this.style.background='#FFF3F0'" onmouseout="this.style.background=''">
+      <span style="font-weight:bold">${c.name}</span>
+      ${c.country?`<span style="color:var(--light);font-size:11px;margin-left:6px">${c.country}</span>`:''}
+      ${c.employee?`<span style="color:var(--orange-dark);font-size:11px;margin-left:6px">${c.employee}</span>`:''}
+    </div>
+  `).join('');
+}
+
+function selectSampleCustomer(id, name, country) {
+  document.getElementById('sf-customer').value = id;
+  document.getElementById('sf-customer-search').value = name;
+  document.getElementById('sf-customer-dropdown').style.display = 'none';
+}
+
+function closeSampleDropdown(e) {
+  const dropdown = document.getElementById('sf-customer-dropdown');
+  const input = document.getElementById('sf-customer-search');
+  if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
+    dropdown.style.display = 'none';
+  }
 }
 
 function saveSampleModal() {
@@ -3252,6 +3499,97 @@ function closeSampleModal() {
 document.getElementById('sample-modal-overlay').addEventListener('click', function(e){ if(e.target===this) closeSampleModal(); });
 
 // ════════════════════════════════════════════════════════════
+//  NEW CUSTOMER MODAL
+// ════════════════════════════════════════════════════════════
+function openNewCustomerModal() {
+  const empFromData = [...new Set(db.customers.map(c=>c.employee).filter(Boolean))];
+  const allEmps = [...new Set([...settings.employees, ...empFromData])].sort();
+  const empOptions = ['', ...allEmps].map(e => `<option value="${e}">${e||'— 未分配 —'}</option>`).join('');
+
+  document.getElementById('new-customer-modal-body').innerHTML = `
+    <div class="field-grid" style="gap:10px 16px">
+      <div class="field-item" style="grid-column:1/-1">
+        <label>客户名称 *</label>
+        <input class="meta-input" id="nc-name" style="width:100%" placeholder="公司名称或客户名">
+      </div>
+      <div class="field-item"><label>国家/地区</label>
+        <input class="meta-input" id="nc-country" style="width:100%" placeholder="如：缅甸">
+      </div>
+      <div class="field-item"><label>客户类型</label>
+        <input class="meta-input" id="nc-type" style="width:100%" placeholder="如：经销商、工程商">
+      </div>
+      <div class="field-item"><label>负责业务员</label>
+        <select class="meta-select" id="nc-employee" style="width:100%">${empOptions}</select>
+      </div>
+      <div class="field-item"><label>热度</label>
+        <select class="meta-select" id="nc-heat" style="width:100%">
+          <option value="cool">🌱 Cool</option>
+          <option value="hot">🔥 Hot</option>
+          <option value="warm">♨️ Warm</option>
+          <option value="cold">❄️ Cold</option>
+        </select>
+      </div>
+      <div class="field-item"><label>联系人</label>
+        <input class="meta-input" id="nc-contact" style="width:100%" placeholder="联系人姓名">
+      </div>
+      <div class="field-item"><label>主要沟通方式</label>
+        <input class="meta-input" id="nc-comm" style="width:100%" placeholder="如：微信 / WhatsApp">
+      </div>
+      <div class="field-item"><label>客户来源</label>
+        <input class="meta-input" id="nc-source" style="width:100%" placeholder="如：展会 / 独立站">
+      </div>
+      <div class="field-item"><label>需求产品</label>
+        <input class="meta-input" id="nc-products" style="width:100%" placeholder="如：HPL 0.7mm">
+      </div>
+      <div class="field-item" style="grid-column:1/-1"><label>首次跟进备注</label>
+        <input class="meta-input" id="nc-note" style="width:100%" placeholder="简单记录初次接触情况（可留空）">
+      </div>
+    </div>
+  `;
+  document.getElementById('new-customer-modal-overlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('nc-name')?.focus(), 100);
+}
+
+function closeNewCustomerModal() {
+  document.getElementById('new-customer-modal-overlay').style.display = 'none';
+}
+
+function saveNewCustomer() {
+  const name = document.getElementById('nc-name').value.trim();
+  if (!name) { showToast('请填写客户名称'); return; }
+  const exists = db.customers.some(c => c.name.toLowerCase() === name.toLowerCase());
+  if (exists) { showToast('该客户名称已存在'); return; }
+  const note = document.getElementById('nc-note').value.trim();
+  const emp  = document.getElementById('nc-employee').value;
+  const t    = today();
+  const newCustomer = {
+    id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+    name,
+    country:    document.getElementById('nc-country').value.trim(),
+    type:       document.getElementById('nc-type').value.trim(),
+    employee:   emp,
+    heat_level: document.getElementById('nc-heat').value,
+    contact:    document.getElementById('nc-contact').value.trim(),
+    comm_channel: document.getElementById('nc-comm').value.trim(),
+    source:     document.getElementById('nc-source').value.trim(),
+    required_products: document.getElementById('nc-products').value.trim(),
+    grade:'', budget:'', purchase_volume:'', existing_supplier:'',
+    sample_info:'', address:'',
+    created_at: t, updated_at: t,
+    interactions: note ? [{ date:t, employee:emp, summary:note, next_action:'' }] : [],
+    notes:[], samples:[],
+    ownerEmail: currentUser?.email || '',
+  };
+  db.customers.push(newCustomer);
+  saveData(db);
+  closeNewCustomerModal();
+  renderAll();
+  showToast(`客户 "${name}" 已创建`);
+  setTimeout(() => openCustomer(newCustomer.id), 300);
+}
+
+document.getElementById('new-customer-modal-overlay').addEventListener('click', function(e){ if(e.target===this) closeNewCustomerModal(); });
+
 // ════════════════════════════════════════════════════════════
 Object.assign(window, {
   switchView, switchDashTab, switchReminderTab,
@@ -3269,10 +3607,15 @@ Object.assign(window, {
   exportData, importData, handleImport, clearAllData,
   generateWeeklyReport, downloadWeeklyReport, updateWeeklyPreviewStats,
   renderExhibition, dismissBanner,
-  togglePriority,
+  togglePriority, toggleHeatSection,
   renderSamplesMgmt, openNewSampleModal, editSampleModal,
   saveSampleModal, closeSampleModal,
   updateSampleStatusMgmt, saveSampleFeedback,
+  filterSampleCustomers, selectSampleCustomer,
+  renderMgmtDailyReport, switchActivityTab, renderMgmtActivity,
+  openNewCustomerModal, closeNewCustomerModal, saveNewCustomer,
+  renderCustomers, renderClosed, renderOrders, renderReminders,
+  signInWithGoogle, signOut,
 });
 </script>
 </body>
