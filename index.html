@@ -278,7 +278,7 @@ table.data-table tr:hover td { background: #FAFAFA; }
 .new-badge { font-size: 11px; padding: 2px 7px; border-radius: 99px; background: #E8F5E9; color: #2E7D32; font-weight: bold; }
 
 /* ── Kanban ── */
-#employee-kanban { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 12px; align-items: flex-start; }
+#employee-kanban { display: none; flex-direction: column; gap: 0; padding-bottom: 12px; }
 .kanban-col { flex: 0 0 260px; min-width: 240px; background: var(--white); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .kanban-col-header { padding: 10px 14px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: space-between; background: var(--bg); border-bottom: 1px solid var(--border); }
 .kanban-col-header .emp-name { color: var(--dark); }
@@ -1076,6 +1076,11 @@ const FIREBASE_CONFIG = {
 };
 
 const ADMIN_EMAIL = 'amandadong99@gmail.com';
+const ALLOWED_EMAILS = [
+  'amandadong99@gmail.com',
+  'judy.remica@gmail.com',
+  'mia.remica99@gmail.com',
+];
 const BACKUP_LAST_KEY = 'qt_ci_last_backup';
 const BACKUP_INTERVAL_DAYS = 10;
 
@@ -1156,6 +1161,15 @@ let weeklyReportHtml = '';
 // ════════════════════════════════════════════════════════════
 onAuthStateChanged(auth, async (user) => {
   if (user) {
+    // Whitelist check
+    if (!ALLOWED_EMAILS.includes(user.email)) {
+      await fbSignOut(auth);
+      document.getElementById('loading-screen').style.display = 'none';
+      document.getElementById('login-screen').classList.add('show');
+      document.getElementById('login-error').textContent = '❌ 该账号没有访问权限，请联系管理员。';
+      return;
+    }
+
     currentUser = user;
     isAdmin = (user.email === ADMIN_EMAIL);
 
@@ -1293,7 +1307,7 @@ function switchDashTab(tab, el) {
   document.querySelectorAll('#view-dashboard .tab-btn').forEach(b => b.classList.remove('active'));
   if (el) el.classList.add('active');
   document.getElementById('heat-board').style.display      = tab==='heat' ? '' : 'none';
-  document.getElementById('employee-kanban').style.display = tab==='employee' ? 'flex' : 'none';
+  document.getElementById('employee-kanban').style.display = tab==='employee' ? 'block' : 'none';
   if (tab==='employee') renderEmployeeKanban();
   else renderHeatBoard();
 }
@@ -1485,43 +1499,108 @@ function renderHeatBoard() {
   });
 }
 
+function toggleEmpSection(key) {
+  const list  = document.getElementById(`emp-section-list-${key}`);
+  const arrow = document.getElementById(`emp-section-arrow-${key}`);
+  if (!list) return;
+  const open = list.style.display === 'none';
+  list.style.display = open ? '' : 'none';
+  arrow.textContent  = open ? '▼ 收起' : '▶ 点击展开';
+}
+
+function toggleEmpHeatSection(key) {
+  const list  = document.getElementById(`emp-heat-list-${key}`);
+  const arrow = document.getElementById(`emp-heat-arrow-${key}`);
+  if (!list) return;
+  const open = list.style.display === 'none';
+  list.style.display = open ? '' : 'none';
+  arrow.textContent  = open ? '▼' : '▶';
+}
+
 function renderEmployeeKanban() {
   const kanban = document.getElementById('employee-kanban');
   kanban.innerHTML = '';
-  const emps = settings.employees && settings.employees.length ? settings.employees : [...new Set(db.customers.map(c=>c.employee).filter(Boolean))];
-  const unassigned = db.customers.filter(c => !c.employee || !emps.includes(c.employee));
-  const allCols = [...emps];
-  if (unassigned.length) allCols.push('__unassigned__');
+  kanban.style.display = '';
+  kanban.style.flexDirection = 'column';
+  kanban.style.overflow = 'visible';
 
-  allCols.forEach(emp => {
-    const isU = emp==='__unassigned__';
-    const list = isU ? unassigned : db.customers.filter(c=>c.employee===emp)
-      .sort((a,b)=>{ const o={hot:0,warm:1,cool:2,cold:3,closed:4}; return (o[a.heat_level]||2)-(o[b.heat_level]||2); });
+  const empFromData = [...new Set(db.customers.map(c=>c.employee).filter(Boolean))];
+  const allEmps = [...new Set([...(settings.employees||[]), ...empFromData])];
+  const unassigned = db.customers.filter(c => !c.employee || !allEmps.includes(c.employee));
+  if (unassigned.length) allEmps.push('__unassigned__');
 
-    // Count by type
+  const HEAT_SECS = [
+    { key:'hot',    label:'🔥 Hot',   cls:'hs-hot' },
+    { key:'warm',   label:'♨️ Warm',  cls:'hs-warm' },
+    { key:'cool',   label:'🌱 Cool',  cls:'hs-cool' },
+    { key:'cold',   label:'❄️ Cold',  cls:'hs-cold' },
+    { key:'closed', label:'🏆 成交',  cls:'hs-closed' },
+  ];
+
+  allEmps.forEach((emp, ei) => {
+    const isU = emp === '__unassigned__';
+    const empList = isU ? unassigned : db.customers.filter(c => c.employee === emp);
+    if (!empList.length) return;
+
+    const empKey = `emp-${ei}`;
+    const defaultOpen = ei === 0; // first employee expanded by default
+
+    // Heat counts summary
     const cts = { hot:0, warm:0, cool:0, cold:0, closed:0 };
-    list.forEach(c=>{ if(cts[c.heat_level]!==undefined) cts[c.heat_level]++; });
+    empList.forEach(c => { if (cts[c.heat_level] !== undefined) cts[c.heat_level]++; });
+    const pillsHtml = [
+      cts.hot    ? `<span class="kanban-stat-pill heat-hot">${cts.hot} Hot</span>` : '',
+      cts.warm   ? `<span class="kanban-stat-pill heat-warm">${cts.warm} Warm</span>` : '',
+      cts.cool   ? `<span class="kanban-stat-pill heat-cool">${cts.cool} Cool</span>` : '',
+      cts.cold   ? `<span class="kanban-stat-pill heat-cold">${cts.cold} Cold</span>` : '',
+      cts.closed ? `<span class="kanban-stat-pill heat-closed">${cts.closed} 成交</span>` : '',
+    ].join('');
 
-    const col = document.createElement('div');
-    col.className = 'kanban-col';
-    col.innerHTML = `
-      <div class="kanban-col-header">
-        <span class="emp-name">${isU?'未分配':emp}</span>
-        <span class="emp-count">${list.length}</span>
+    const sec = document.createElement('div');
+    sec.className = 'heat-section';
+    sec.innerHTML = `
+      <div class="heat-section-title" onclick="toggleEmpSection('${empKey}')"
+        style="cursor:pointer;user-select:none;justify-content:space-between;background:#2C2C2C;color:#fff;border-radius:6px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:bold">👤 ${isU ? '未分配' : emp}</span>
+          <span style="font-weight:normal;font-size:11px;opacity:0.6">${empList.length} 个客户</span>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">${pillsHtml}</div>
+        </div>
+        <span id="emp-section-arrow-${empKey}" style="font-size:11px;font-weight:normal;white-space:nowrap;opacity:0.7">
+          ${defaultOpen ? '▼ 收起' : '▶ 点击展开'}
+        </span>
       </div>
-      <div class="kanban-col-stats">
-        ${cts.hot?`<span class="kanban-stat-pill heat-hot">${cts.hot} Hot</span>`:''}
-        ${cts.warm?`<span class="kanban-stat-pill heat-warm">${cts.warm} Warm</span>`:''}
-        ${cts.cool?`<span class="kanban-stat-pill heat-cool">${cts.cool} Cool</span>`:''}
-        ${cts.cold?`<span class="kanban-stat-pill heat-cold">${cts.cold} Cold</span>`:''}
-        ${cts.closed?`<span class="kanban-stat-pill heat-closed">${cts.closed} 成交</span>`:''}
+      <div id="emp-section-list-${empKey}" style="display:${defaultOpen ? '' : 'none'};padding:8px 0 4px 0">
       </div>
-      <div class="kanban-cards"></div>
     `;
-    const cardsEl = col.querySelector('.kanban-cards');
-    if (!list.length) cardsEl.innerHTML = '<div class="kanban-empty">暂无客户</div>';
-    else list.forEach(c => cardsEl.appendChild(buildKanbanCard(c)));
-    kanban.appendChild(col);
+
+    const empBody = sec.querySelector(`#emp-section-list-${empKey}`);
+
+    // Second level: heat sections inside each employee
+    HEAT_SECS.forEach((hs, hi) => {
+      const hList = empList.filter(c => c.heat_level === hs.key)
+        .sort((a,b) => (b.updated_at||'').localeCompare(a.updated_at||''));
+      if (!hList.length) return;
+
+      const hKey = `${empKey}-${hs.key}`;
+      const hDefaultOpen = hs.key === 'hot' || hs.key === 'warm';
+
+      const hSec = document.createElement('div');
+      hSec.style.cssText = 'margin-bottom:8px';
+      hSec.innerHTML = `
+        <div class="heat-section-title ${hs.cls}" onclick="toggleEmpHeatSection('${hKey}')"
+          style="cursor:pointer;user-select:none;justify-content:space-between;padding:5px 12px;font-size:11px">
+          <span>${hs.label} <span style="font-weight:normal">(${hList.length})</span></span>
+          <span id="emp-heat-arrow-${hKey}" style="font-size:10px">${hDefaultOpen ? '▼' : '▶'}</span>
+        </div>
+        <div id="emp-heat-list-${hKey}" style="display:${hDefaultOpen ? '' : 'none'}"></div>
+      `;
+      const hListEl = hSec.querySelector(`#emp-heat-list-${hKey}`);
+      hList.forEach(c => hListEl.appendChild(buildCustomerRow(c)));
+      empBody.appendChild(hSec);
+    });
+
+    kanban.appendChild(sec);
   });
 }
 
@@ -3607,7 +3686,7 @@ Object.assign(window, {
   exportData, importData, handleImport, clearAllData,
   generateWeeklyReport, downloadWeeklyReport, updateWeeklyPreviewStats,
   renderExhibition, dismissBanner,
-  togglePriority, toggleHeatSection,
+  togglePriority, toggleHeatSection, toggleEmpSection, toggleEmpHeatSection,
   renderSamplesMgmt, openNewSampleModal, editSampleModal,
   saveSampleModal, closeSampleModal,
   updateSampleStatusMgmt, saveSampleFeedback,
