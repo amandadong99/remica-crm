@@ -738,6 +738,7 @@ table.data-table tr:hover td { background: #FAFAFA; }
         <select class="meta-select" id="sample-mgmt-status" onchange="renderSamplesMgmt()">
           <option value="active">进行中（未完结）</option>
           <option value="all">全部样品</option>
+          <option value="正在准备中">正在准备中</option>
           <option value="待寄出">待寄出</option>
           <option value="已寄出">已寄出</option>
           <option value="已签收">已签收</option>
@@ -950,18 +951,21 @@ table.data-table tr:hover td { background: #FAFAFA; }
         <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:14px">
           <div style="font-size:12px;font-weight:bold;color:var(--dark);margin-bottom:10px">＋ 添加样品记录</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-bottom:8px">
-            <div class="field-item"><label>寄出日期</label><input class="meta-input" id="sample-date" type="date" style="width:100%"></div>
-            <div class="field-item"><label>快递单号</label><input class="meta-input" id="sample-tracking" style="width:100%" placeholder="如：SF1234567890"></div>
             <div class="field-item" style="grid-column:1/-1"><label>样品内容</label><input class="meta-input" id="sample-content" style="width:100%" placeholder="如：大样册1本 + HPL样品3片 + Compact 2块"></div>
             <div class="field-item"><label>状态</label>
               <select class="meta-select" id="sample-status" style="width:100%">
+                <option value="正在准备中">🔧 正在准备中</option>
+                <option value="待寄出">⏳ 待寄出</option>
                 <option value="已寄出">📦 已寄出</option>
                 <option value="已签收">✅ 已签收</option>
                 <option value="客户已反馈">💬 客户已反馈</option>
-                <option value="待寄出">⏳ 待寄出</option>
               </select>
             </div>
-            <div class="field-item"><label>备注</label><input class="meta-input" id="sample-note" style="width:100%" placeholder="如：客户对石纹样品满意"></div>
+            <div class="field-item"><label>样品准备日期</label><input class="meta-input" id="sample-prepare-date" type="date" style="width:100%"></div>
+            <div class="field-item"><label>预计准备完成日期 ⏰</label><input class="meta-input" id="sample-prepare-deadline" type="date" style="width:100%" placeholder="到期提醒"></div>
+            <div class="field-item"><label>寄出日期</label><input class="meta-input" id="sample-date" type="date" style="width:100%"></div>
+            <div class="field-item"><label>快递单号</label><input class="meta-input" id="sample-tracking" style="width:100%" placeholder="如：SF1234567890"></div>
+            <div class="field-item" style="grid-column:1/-1"><label>备注</label><input class="meta-input" id="sample-note" style="width:100%" placeholder="如：客户对石纹样品满意"></div>
           </div>
           <button class="btn btn-primary btn-sm" onclick="addSampleRecord()">💾 保存样品记录</button>
         </div>
@@ -2894,7 +2898,9 @@ function openCustomer(id) {
   document.getElementById('tl-add-summary').value = '';
 
   // Reset sample form
-  document.getElementById('sample-date').value = today();
+  document.getElementById('sample-date').value = '';
+  document.getElementById('sample-prepare-date').value = '';
+  document.getElementById('sample-prepare-deadline').value = '';
   document.getElementById('sample-tracking').value = '';
   document.getElementById('sample-content').value = '';
   document.getElementById('sample-note').value = '';
@@ -3099,21 +3105,29 @@ function renderModalSamples() {
     return;
   }
   el.innerHTML = '';
-  const statusIcon = { '已寄出':'📦','已签收':'✅','客户已反馈':'💬','待寄出':'⏳' };
+  const statusIcon = { '正在准备中':'🔧','已寄出':'📦','已签收':'✅','客户已反馈':'💬','待寄出':'⏳' };
   [...samples].reverse().forEach((s, ri) => {
     const idx = samples.length - 1 - ri;
     const div = document.createElement('div');
     div.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;background:var(--white)';
     div.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:13px;font-weight:bold">${statusIcon[s.status]||'📦'} ${s.status||'已寄出'}</span>
-          <span style="font-size:11px;color:var(--light)">${formatDate(s.date)}</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:bold">${statusIcon[s.status]||'🔧'} ${s.status||'正在准备中'}</span>
+          ${s.prepare_date?`<span style="font-size:11px;color:var(--light)">准备：${formatDate(s.prepare_date)}</span>`:''}
+          ${s.date?`<span style="font-size:11px;color:var(--light)">寄出：${formatDate(s.date)}</span>`:''}
           ${s.tracking?`<span style="font-size:11px;background:var(--bg);padding:1px 7px;border-radius:4px;color:var(--mid)">📮 ${s.tracking}</span>`:''}
+          ${(()=>{
+            if (!s.prepare_deadline || s.status !== '正在准备中') return '';
+            const diff = daysDiff(s.prepare_deadline);
+            if (diff < 0) return `<span style="background:#FFEBEE;color:#C62828;font-size:11px;padding:1px 7px;border-radius:99px;font-weight:bold">⚠️ 逾期${-diff}天</span>`;
+            if (diff <= 3) return `<span style="background:#FFF3E0;color:#E65100;font-size:11px;padding:1px 7px;border-radius:99px;font-weight:bold">⏰ ${diff===0?'今天':'还有'+diff+'天'}完成</span>`;
+            return `<span style="font-size:11px;color:var(--light)">预计：${formatDate(s.prepare_deadline)}</span>`;
+          })()}
         </div>
         <div style="display:flex;gap:6px">
           <select class="meta-select" style="font-size:11px;padding:2px 6px" onchange="updateSampleStatus(${idx},this.value)">
-            ${['已寄出','已签收','客户已反馈','待寄出'].map(st=>`<option ${st===s.status?'selected':''}>${st}</option>`).join('')}
+            ${['正在准备中','待寄出','已寄出','已签收','客户已反馈'].map(st=>`<option ${st===s.status?'selected':''}>${st}</option>`).join('')}
           </select>
           <button style="background:none;border:none;cursor:pointer;color:var(--light);font-size:13px" onclick="deleteSample(${idx})" title="删除">🗑️</button>
         </div>
@@ -3133,11 +3147,13 @@ function addSampleRecord() {
   if (!content) { showToast('请填写样品内容'); return; }
   c.samples = c.samples || [];
   c.samples.push({
-    date:     document.getElementById('sample-date').value || today(),
-    tracking: document.getElementById('sample-tracking').value.trim(),
+    prepare_date:     document.getElementById('sample-prepare-date').value || today(),
+    prepare_deadline: document.getElementById('sample-prepare-deadline').value || '',
+    date:             document.getElementById('sample-date').value || '',
+    tracking:         document.getElementById('sample-tracking').value.trim(),
     content,
-    status:   document.getElementById('sample-status').value,
-    note:     document.getElementById('sample-note').value.trim(),
+    status:           document.getElementById('sample-status').value,
+    note:             document.getElementById('sample-note').value.trim(),
   });
   c.updated_at = today();
   saveData(db);
@@ -3145,7 +3161,9 @@ function addSampleRecord() {
   document.getElementById('sample-tracking').value = '';
   document.getElementById('sample-content').value = '';
   document.getElementById('sample-note').value = '';
-  document.getElementById('sample-date').value = today();
+  document.getElementById('sample-date').value = '';
+  document.getElementById('sample-prepare-date').value = '';
+  document.getElementById('sample-prepare-deadline').value = '';
   renderModalSamples();
   showToast('样品记录已保存');
 }
@@ -3327,7 +3345,7 @@ function saveParsedCustomers() {
       // Extract sample info from parsed data
       if (pc.sample_info) {
         c.samples = c.samples||[];
-        c.samples.push({ date, tracking:'', content: pc.sample_info, status:'已寄出', note:'（日报自动提取）' });
+        c.samples.push({ prepare_date: date, prepare_deadline:'', date:'', tracking:'', content: pc.sample_info, status:'正在准备中', note:'（日报自动提取）' });
       }
       c.updated_at = date; c.employee = employee||c.employee; updatedCount++;
     } else {
@@ -3341,7 +3359,7 @@ function saveParsedCustomers() {
         reminder_date:pc.reminder_date||'', exhibition_status:pc.exhibition_status||'',
         budget:'', products:'', employee, created_at:date, updated_at:date,
         interactions:[interaction], notes:[],
-        samples: pc.sample_info ? [{ date, tracking:'', content: pc.sample_info, status:'已寄出', note:'（日报自动提取）' }] : [],
+        samples: pc.sample_info ? [{ prepare_date: date, prepare_deadline:'', date:'', tracking:'', content: pc.sample_info, status:'正在准备中', note:'（日报自动提取）' }] : [],
         follow_cycle:null,
       });
       newCount++;
@@ -3478,8 +3496,9 @@ function showToast(msg) {
 // ════════════════════════════════════════════════════════════
 //  SAMPLES MANAGEMENT
 // ════════════════════════════════════════════════════════════
-const SAMPLE_STATUSES = ['待寄出','已寄出','已签收','客户已反馈'];
+const SAMPLE_STATUSES = ['正在准备中','待寄出','已寄出','已签收','客户已反馈'];
 const SAMPLE_STATUS_COLORS = {
+  '正在准备中':{ bg:'#F3E5F5', color:'#6A1B9A' },
   '待寄出':  { bg:'#FFF3E0', color:'#E65100' },
   '已寄出':  { bg:'#E3F2FD', color:'#1565C0' },
   '已签收':  { bg:'#E8F5E9', color:'#2E7D32' },
@@ -3537,17 +3556,33 @@ function renderSamplesMgmt() {
       `<button onclick="updateSampleStatusMgmt('${s.customerId}',${s.sampleIdx},'${st}')" style="padding:3px 10px;border-radius:99px;border:1.5px solid ${st===s.status?sc.color:'#ddd'};background:${st===s.status?sc.bg:'#fff'};color:${st===s.status?sc.color:'#888'};font-size:11px;cursor:pointer;font-weight:${st===s.status?'bold':'normal'}">${st}</button>`
     ).join('');
 
+    // Deadline warning for 正在准备中
+    let deadlineHtml = '';
+    if (s.prepare_deadline && s.status === '正在准备中') {
+      const diff = daysDiff(s.prepare_deadline);
+      if (diff !== null && diff < 0) {
+        deadlineHtml = `<span style="background:#FFEBEE;color:#C62828;font-size:11px;padding:2px 8px;border-radius:99px;font-weight:bold">⚠️ 已逾期${-diff}天，需跟进</span>`;
+      } else if (diff !== null && diff <= 3) {
+        deadlineHtml = `<span style="background:#FFF3E0;color:#E65100;font-size:11px;padding:2px 8px;border-radius:99px;font-weight:bold">⏰ ${diff===0?'今天':'还有'+diff+'天'}需准备完成</span>`;
+      } else if (diff !== null) {
+        deadlineHtml = `<span style="font-size:11px;color:#888">预计完成：${formatDate(s.prepare_deadline)}</span>`;
+      }
+    }
+
     const div = document.createElement('div');
-    div.style.cssText = 'background:#fff;border:1px solid #E0E0E0;border-radius:10px;padding:14px 16px;margin-bottom:10px';
+    const isOverdue = s.prepare_deadline && s.status==='正在准备中' && daysDiff(s.prepare_deadline) < 0;
+    div.style.cssText = `background:#fff;border:1px solid ${isOverdue?'#FFCDD2':'#E0E0E0'};border-radius:10px;padding:14px 16px;margin-bottom:10px`;
     div.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
         <span style="font-weight:bold;font-size:13px;cursor:pointer;color:var(--orange-dark)" onclick="openCustomer('${s.customerId}')">${s.customerName}</span>
         <span style="font-size:11px;background:${sc.bg};color:${sc.color};padding:2px 8px;border-radius:99px;font-weight:bold">${s.status}</span>
         ${s.customerEmployee?`<span style="font-size:11px;color:#888">${s.customerEmployee}</span>`:''}
-        <span style="margin-left:auto;font-size:11px;color:#aaa">${s.date||''}</span>
+        ${deadlineHtml}
+        <span style="margin-left:auto;font-size:11px;color:#aaa">${s.prepare_date?'准备：'+s.prepare_date:''}</span>
       </div>
       <div style="font-size:13px;color:#333;margin-bottom:6px">${s.content||'—'}</div>
       ${s.tracking?`<div style="font-size:11px;color:#888;margin-bottom:6px">📮 快递单号：${s.tracking}</div>`:''}
+      ${s.date?`<div style="font-size:11px;color:#888;margin-bottom:6px">📅 寄出日期：${s.date}</div>`:''}
       ${s.note?`<div style="font-size:11px;color:#888;margin-bottom:8px;background:#F9F9F9;border-radius:5px;padding:5px 8px">💬 ${s.note}</div>`:''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${statusBtns}</div>
       ${s.status==='客户已反馈'?`
@@ -3607,7 +3642,7 @@ function editSampleModal(customerId, idx) {
 
 function renderSampleForm(s, preCustomerId) {
   const statusOptions = SAMPLE_STATUSES.map(st =>
-    `<option value="${st}" ${(s?.status||'待寄出')===st?'selected':''}>${st}</option>`
+    `<option value="${st}" ${(s?.status||'正在准备中')===st?'selected':''}>${st}</option>`
   ).join('');
 
   // Pre-fill customer name if editing
@@ -3625,11 +3660,17 @@ function renderSampleForm(s, preCustomerId) {
       <div class="field-item" style="grid-column:1/-1"><label>样品内容 *</label>
         <input class="meta-input" id="sf-content" value="${s?.content||''}" style="width:100%" placeholder="如：HPL 0.8mm 哑光白 3张">
       </div>
-      <div class="field-item"><label>寄出日期</label>
-        <input class="meta-input" id="sf-date" type="date" value="${s?.date||today()}" style="width:100%">
-      </div>
       <div class="field-item"><label>当前状态</label>
         <select class="meta-select" id="sf-status" style="width:100%">${statusOptions}</select>
+      </div>
+      <div class="field-item"><label>样品准备日期</label>
+        <input class="meta-input" id="sf-prepare-date" type="date" value="${s?.prepare_date||today()}" style="width:100%">
+      </div>
+      <div class="field-item"><label>预计准备完成日期 ⏰</label>
+        <input class="meta-input" id="sf-prepare-deadline" type="date" value="${s?.prepare_deadline||''}" style="width:100%" placeholder="到期提醒跟进">
+      </div>
+      <div class="field-item"><label>寄出日期</label>
+        <input class="meta-input" id="sf-date" type="date" value="${s?.date||''}" style="width:100%">
       </div>
       <div class="field-item" style="grid-column:1/-1"><label>快递单号</label>
         <input class="meta-input" id="sf-tracking" value="${s?.tracking||''}" style="width:100%" placeholder="快递单号">
@@ -3690,11 +3731,13 @@ function saveSampleModal() {
   if (!c) return;
   c.samples = c.samples || [];
   const record = {
-    date:     document.getElementById('sf-date').value || today(),
+    prepare_date:     document.getElementById('sf-prepare-date').value || today(),
+    prepare_deadline: document.getElementById('sf-prepare-deadline').value || '',
+    date:             document.getElementById('sf-date').value || '',
     content,
-    status:   document.getElementById('sf-status').value,
-    tracking: document.getElementById('sf-tracking').value.trim(),
-    note:     document.getElementById('sf-note').value.trim(),
+    status:           document.getElementById('sf-status').value,
+    tracking:         document.getElementById('sf-tracking').value.trim(),
+    note:             document.getElementById('sf-note').value.trim(),
   };
   if (editingSampleCustomerId && editingSampleIdx !== null) {
     // Edit existing — may have moved to different customer
