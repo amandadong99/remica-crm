@@ -1008,10 +1008,18 @@ table.data-table tr:hover td { background: #FAFAFA; }
             <div class="field-item" style="grid-column:1/-1">
               <label>样品图片（可多张）</label>
               <input type="file" id="sample-images" accept="image/*" multiple style="display:none" onchange="previewSampleImages()">
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
                 <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('sample-images').click()">📷 选择图片</button>
                 <span id="sample-images-label" style="font-size:11px;color:var(--light)">未选择</span>
               </div>
+              <div id="sample-paste-zone" onclick="this.focus()" tabindex="0"
+                style="border:2px dashed var(--orange);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--orange-dark);cursor:pointer;outline:none;background:#FFF8F5;text-align:center"
+                onpaste="handlePaste(event,'sample-images-preview','sample-paste-files')"
+                onfocus="this.style.background='#FFF0E8';this.style.borderColor='var(--orange-dark)'"
+                onblur="this.style.background='#FFF8F5';this.style.borderColor='var(--orange)'">
+                📋 点击这里，然后 Ctrl+V（Mac用⌘V）粘贴截图
+              </div>
+              <input type="hidden" id="sample-paste-files" value="">
               <div id="sample-images-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
             </div>
           </div>
@@ -1039,10 +1047,18 @@ table.data-table tr:hover td { background: #FAFAFA; }
             <div class="field-item" style="grid-column:1/-1">
               <label>上传图片或PDF（可多个）</label>
               <input type="file" id="quote-files" accept="image/*,.pdf" multiple style="display:none" onchange="previewQuoteFiles()">
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
                 <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('quote-files').click()">📎 选择文件</button>
                 <span id="quote-files-label" style="font-size:11px;color:var(--light)">未选择</span>
               </div>
+              <div id="quote-paste-zone" onclick="this.focus()" tabindex="0"
+                style="border:2px dashed var(--orange);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--orange-dark);cursor:pointer;outline:none;background:#FFF8F5;text-align:center"
+                onpaste="handlePaste(event,'quote-files-preview','quote-paste-files')"
+                onfocus="this.style.background='#FFF0E8';this.style.borderColor='var(--orange-dark)'"
+                onblur="this.style.background='#FFF8F5';this.style.borderColor='var(--orange)'">
+                📋 点击这里，然后 Ctrl+V（Mac用⌘V）粘贴截图
+              </div>
+              <input type="hidden" id="quote-paste-files" value="">
               <div id="quote-files-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
             </div>
           </div>
@@ -3317,11 +3333,13 @@ async function addSampleRecord() {
     images: [],
   };
 
-  // Upload images
-  const files = document.getElementById('sample-images')?.files;
-  if (files?.length) {
+  // Upload files (selected + pasted)
+  const selectedFiles = Array.from(document.getElementById('sample-images')?.files || []);
+  const pastedFiles   = getPastedFiles('sample-paste-files');
+  const allFiles      = [...selectedFiles, ...pastedFiles];
+  if (allFiles.length) {
     showToast('正在上传图片...');
-    for (const file of Array.from(files)) {
+    for (const file of allFiles) {
       try {
         const result = await uploadSampleImage(file, modalCustomerId, sampleId);
         record.images.push(result);
@@ -3348,6 +3366,9 @@ async function addSampleRecord() {
   document.getElementById('sample-images').value = '';
   document.getElementById('sample-images-label').textContent = '未选择';
   document.getElementById('sample-images-preview').innerHTML = '';
+  clearPastedFiles('sample-paste-files');
+  const spz = document.getElementById('sample-paste-zone');
+  if (spz) spz.textContent = '📋 点击这里，然后 Ctrl+V（Mac用⌘V）粘贴截图';
   renderModalSamples();
   showToast('样品记录已保存');
 }
@@ -3818,18 +3839,20 @@ async function saveQuoteEdit() {
   q.files = (q.files||[]).filter((_, i) => !_removedQuoteFiles.includes(i));
   _removedQuoteFiles = [];
 
-  // Upload new files
-  const files = document.getElementById('quote-files')?.files;
-  if (files?.length) {
+  // Upload new files (selected + pasted)
+  const selectedFiles = Array.from(document.getElementById('quote-files')?.files || []);
+  const pastedFiles   = getPastedFiles('quote-paste-files');
+  const allFiles      = [...selectedFiles, ...pastedFiles];
+  if (allFiles.length) {
     showToast('正在上传文件...');
-    for (const file of Array.from(files)) {
+    for (const file of allFiles) {
       try {
-        const ext = file.name.split('.').pop().toLowerCase();
+        const ext = (file.name||'png').split('.').pop().toLowerCase();
         const path = `quotes/${currentUser.uid}/${modalCustomerId}_${q.id||'q'}_${Date.now()}.${ext}`;
         const storageRef = ref(storage, path);
         await uploadBytes(storageRef, file);
         const url = await getDownloadURL(storageRef);
-        q.files.push({ url, path, name: file.name, type: file.type });
+        q.files.push({ url, path, name: file.name||'截图.png', type: file.type });
       } catch(e) { console.error('文件上传失败:', e); }
     }
   }
@@ -3845,6 +3868,9 @@ async function saveQuoteEdit() {
   document.getElementById('quote-files').value = '';
   document.getElementById('quote-files-label').textContent = '未选择';
   document.getElementById('quote-files-preview').innerHTML = '';
+  clearPastedFiles('quote-paste-files');
+  const qpz = document.getElementById('quote-paste-zone');
+  if (qpz) qpz.textContent = '📋 点击这里，然后 Ctrl+V（Mac用⌘V）粘贴截图';
   const saveBtn = document.querySelector('#modal-tab-quotes .btn-primary');
   if (saveBtn) { saveBtn.textContent = '💾 保存报价记录'; saveBtn.onclick = () => addQuoteRecord(); }
 
@@ -4140,10 +4166,18 @@ function renderSampleForm(s, preCustomerId) {
       <div class="field-item" style="grid-column:1/-1">
         <label>样品图片（可多张）</label>
         <input type="file" id="sf-images" accept="image/*" multiple style="display:none" onchange="previewSampleImagesModal()">
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
           <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('sf-images').click()">📷 选择图片</button>
           <span id="sf-images-label" style="font-size:11px;color:var(--light)">未选择</span>
         </div>
+        <div id="sf-paste-zone" onclick="this.focus()" tabindex="0"
+          style="border:2px dashed var(--orange);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--orange-dark);cursor:pointer;outline:none;background:#FFF8F5;text-align:center"
+          onpaste="handlePaste(event,'sf-images-preview','sf-paste-files')"
+          onfocus="this.style.background='#FFF0E8';this.style.borderColor='var(--orange-dark)'"
+          onblur="this.style.background='#FFF8F5';this.style.borderColor='var(--orange)'">
+          📋 点击这里，然后 Ctrl+V（Mac用⌘V）粘贴截图
+        </div>
+        <input type="hidden" id="sf-paste-files" value="">
         <div id="sf-images-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
         ${(s?.images||[]).length ? `
         <div style="margin-top:8px">
@@ -4164,6 +4198,48 @@ function renderSampleForm(s, preCustomerId) {
   setTimeout(() => {
     document.addEventListener('click', closeSampleDropdown, true);
   }, 100);
+}
+
+// ════════════════════════════════════════════════════════════
+//  PASTE IMAGE HANDLER
+// ════════════════════════════════════════════════════════════
+// Store pasted files per zone
+const _pastedFiles = {};
+
+function handlePaste(event, previewId, storeKey) {
+  const items = event.clipboardData?.items;
+  if (!items) return;
+  let added = 0;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (!file) continue;
+      if (!_pastedFiles[storeKey]) _pastedFiles[storeKey] = [];
+      _pastedFiles[storeKey].push(file);
+      const url = URL.createObjectURL(file);
+      const preview = document.getElementById(previewId);
+      if (preview) {
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.cssText = 'width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border)';
+        preview.appendChild(img);
+      }
+      added++;
+    }
+  }
+  if (added > 0) {
+    const zone = event.currentTarget;
+    zone.textContent = `✅ 已粘贴 ${(_pastedFiles[storeKey]||[]).length} 张图片`;
+    event.preventDefault();
+  }
+}
+
+function getPastedFiles(storeKey) {
+  return _pastedFiles[storeKey] || [];
+}
+
+function clearPastedFiles(storeKey) {
+  _pastedFiles[storeKey] = [];
 }
 
 function toggleSampleFeeFields(prefix) {
@@ -4269,17 +4345,20 @@ async function saveSampleModal() {
   }
   _sampleImagesToRemove = [];
 
-  // Upload new images
-  const files = document.getElementById('sf-images')?.files;
-  if (files?.length) {
+  // Upload new images (selected + pasted)
+  const selectedFiles = Array.from(document.getElementById('sf-images')?.files || []);
+  const pastedFiles   = getPastedFiles('sf-paste-files');
+  const allNewFiles   = [...selectedFiles, ...pastedFiles];
+  if (allNewFiles.length) {
     showToast('正在上传图片...');
-    for (const file of Array.from(files)) {
+    for (const file of allNewFiles) {
       try {
         const result = await uploadSampleImage(file, customerId, sampleId);
         existingImages.push(result);
       } catch(e) { console.error('图片上传失败:', e); }
     }
   }
+  clearPastedFiles('sf-paste-files');
 
   const record = {
     prepare_date:     document.getElementById('sf-prepare-date').value || today(),
@@ -4461,7 +4540,7 @@ Object.assign(window, {
   updateSampleStatusMgmt, saveSampleFeedback,
   filterSampleCustomers, selectSampleCustomer,
   previewSampleImages, previewSampleImagesModal, removeSampleImageFromEdit,
-  toggleSampleFeeFields,
+  toggleSampleFeeFields, handlePaste,
   previewQuoteFiles, addQuoteRecord, deleteQuoteRecord, renderModalQuotes,
   editQuoteRecord, saveQuoteEdit, removeExistingQuoteFile,
   renderMgmtDailyReport, switchActivityTab, renderMgmtActivity,
