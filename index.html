@@ -600,22 +600,12 @@ table.data-table tr:hover td { background: #FAFAFA; }
 
     <!-- ══ MANAGEMENT DASHBOARD ══ -->
     <div id="view-mgmt" class="view">
-      <!-- Row 1: stat cards + daily report -->
-      <div style="display:grid;grid-template-columns:1fr 380px;gap:16px;margin-bottom:16px;align-items:start">
-        <div>
-          <div class="mgmt-stat-row" id="mgmt-stat-row"></div>
-          <div class="card" style="margin-bottom:0">
-            <div class="card-title">👤 业务员客户统计</div>
-            <div id="mgmt-employee-stats"></div>
-          </div>
-        </div>
-        <!-- Daily report panel -->
+      <!-- Row 1: stat cards -->
+      <div style="margin-bottom:16px">
+        <div class="mgmt-stat-row" id="mgmt-stat-row"></div>
         <div class="card" style="margin-bottom:0">
-          <div class="card-title" style="justify-content:space-between">
-            <span>📋 员工日报</span>
-            <input type="date" id="mgmt-report-date" class="meta-input" style="width:140px;font-size:11px" onchange="renderMgmtDailyReport()">
-          </div>
-          <div id="mgmt-daily-report"></div>
+          <div class="card-title">👤 业务员客户统计</div>
+          <div id="mgmt-employee-stats"></div>
         </div>
       </div>
 
@@ -636,6 +626,15 @@ table.data-table tr:hover td { background: #FAFAFA; }
           </div>
         </div>
         <div id="mgmt-activity-stats"></div>
+      </div>
+
+      <!-- Row 3: daily report -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title" style="justify-content:space-between">
+          <span>📋 员工日报</span>
+          <input type="date" id="mgmt-report-date" class="meta-input" style="width:140px;font-size:11px" onchange="renderMgmtDailyReport()">
+        </div>
+        <div id="mgmt-daily-report"></div>
       </div>
 
       <div class="mgmt-grid">
@@ -2248,7 +2247,7 @@ function renderReminders() {
         <div class="ri-name">${c.name}</div>
         <div style="font-size:11px;color:var(--light);min-width:90px">${c.country||''} · ${c.employee||''}</div>
         <div class="ri-note" style="font-size:11px">
-          ${lastIA ? `最近：${formatDate(lastIA.date)} · ${(lastIA.summary||'').substring(0,40)}${(lastIA.summary||'').length>40?'…':''}` : ''}
+          ${lastIA ? `<span style="color:var(--light)">${formatDate(lastIA.date)}</span>` : ''}
           <span style="color:var(--orange-dark);margin-left:6px">共${iaCount}次互动</span>
         </div>
         <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openCustomer('${c.id}')">查看</button>
