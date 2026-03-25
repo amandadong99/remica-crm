@@ -3222,6 +3222,7 @@ function renderModalSamples() {
           <select class="meta-select" style="font-size:11px;padding:2px 6px" onchange="updateSampleStatus(${idx},this.value)">
             ${['正在准备中','待寄出','已寄出','已签收','客户已反馈'].map(st=>`<option ${st===s.status?'selected':''}>${st}</option>`).join('')}
           </select>
+          <button style="background:none;border:none;cursor:pointer;color:var(--light);font-size:13px" onclick="openEditSampleInModal(${idx})" title="编辑">✏️</button>
           <button style="background:none;border:none;cursor:pointer;color:var(--light);font-size:13px" onclick="deleteSample(${idx})" title="删除">🗑️</button>
         </div>
       </div>
@@ -3231,6 +3232,11 @@ function renderModalSamples() {
     `;
     el.appendChild(div);
   });
+}
+
+function openEditSampleInModal(idx) {
+  if (!modalCustomerId) return;
+  editSampleModal(modalCustomerId, idx);
 }
 
 async function addSampleRecord() {
@@ -3689,6 +3695,99 @@ async function addQuoteRecord() {
   showToast('报价记录已保存');
 }
 
+let _editingQuoteIdx = null;
+
+function editQuoteRecord(idx) {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  const q = c?.quotes?.[idx];
+  if (!q) return;
+  _editingQuoteIdx = idx;
+
+  // Fill form with existing data
+  document.getElementById('quote-date').value = q.date || today();
+  document.getElementById('quote-amount').value = q.amount || '';
+  document.getElementById('quote-note').value = q.note || '';
+  document.getElementById('quote-files').value = '';
+  document.getElementById('quote-files-label').textContent = '未选择（已有文件保留）';
+  document.getElementById('quote-files-preview').innerHTML = '';
+
+  // Show existing files in preview
+  if ((q.files||[]).length) {
+    const preview = document.getElementById('quote-files-preview');
+    preview.innerHTML = (q.files||[]).map((f,i) => {
+      const isImg = f.type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(f.name||'');
+      return isImg
+        ? `<div style="position:relative"><img src="${f.url}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="removeExistingQuoteFile(${i})" style="position:absolute;top:-6px;right:-6px;background:#E53935;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:1">×</button></div>`
+        : `<div style="position:relative"><div style="width:70px;height:70px;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--mid);background:#FAFAFA;text-align:center;padding:4px">📄 ${(f.name||'文件').substring(0,12)}</div><button onclick="removeExistingQuoteFile(${i})" style="position:absolute;top:-6px;right:-6px;background:#E53935;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:1">×</button></div>`;
+    }).join('');
+  }
+
+  // Switch button text
+  const saveBtn = document.querySelector('#modal-tab-quotes .btn-primary');
+  if (saveBtn) { saveBtn.textContent = '💾 更新报价记录'; saveBtn.onclick = () => saveQuoteEdit(); }
+
+  // Scroll to form
+  document.getElementById('modal-tab-quotes').scrollTop = 0;
+  showToast('正在编辑报价记录，修改后点保存');
+}
+
+let _removedQuoteFiles = [];
+function removeExistingQuoteFile(i) {
+  _removedQuoteFiles.push(i);
+  const preview = document.getElementById('quote-files-preview');
+  const items = preview.querySelectorAll('div[style*="position:relative"]');
+  if (items[i]) items[i].remove();
+}
+
+async function saveQuoteEdit() {
+  if (_editingQuoteIdx === null || !modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c || !c.quotes?.[_editingQuoteIdx]) return;
+
+  const q = c.quotes[_editingQuoteIdx];
+  q.date   = document.getElementById('quote-date').value || today();
+  q.amount = document.getElementById('quote-amount').value.trim();
+  q.note   = document.getElementById('quote-note').value.trim();
+
+  // Remove deleted files
+  q.files = (q.files||[]).filter((_, i) => !_removedQuoteFiles.includes(i));
+  _removedQuoteFiles = [];
+
+  // Upload new files
+  const files = document.getElementById('quote-files')?.files;
+  if (files?.length) {
+    showToast('正在上传文件...');
+    for (const file of Array.from(files)) {
+      try {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const path = `quotes/${currentUser.uid}/${modalCustomerId}_${q.id||'q'}_${Date.now()}.${ext}`;
+        const storageRef = ref(storage, path);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        q.files.push({ url, path, name: file.name, type: file.type });
+      } catch(e) { console.error('文件上传失败:', e); }
+    }
+  }
+
+  c.updated_at = today();
+  saveData(db);
+
+  // Reset form
+  _editingQuoteIdx = null;
+  document.getElementById('quote-date').value = today();
+  document.getElementById('quote-amount').value = '';
+  document.getElementById('quote-note').value = '';
+  document.getElementById('quote-files').value = '';
+  document.getElementById('quote-files-label').textContent = '未选择';
+  document.getElementById('quote-files-preview').innerHTML = '';
+  const saveBtn = document.querySelector('#modal-tab-quotes .btn-primary');
+  if (saveBtn) { saveBtn.textContent = '💾 保存报价记录'; saveBtn.onclick = () => addQuoteRecord(); }
+
+  renderModalQuotes();
+  showToast('报价记录已更新');
+}
+
 function renderModalQuotes() {
   if (!modalCustomerId) return;
   const c = db.customers.find(x => x.id === modalCustomerId);
@@ -3702,24 +3801,29 @@ function renderModalQuotes() {
   el.innerHTML = '';
   quotes.forEach((q, ri) => {
     const idx = (c.quotes.length - 1) - ri;
-    const filesHtml = (q.files||[]).map(f =>
-      f.type?.startsWith('image/')
-        ? `<img src="${f.url}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="window.open('${f.url}','_blank')">`
-        : `<a href="${f.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;width:70px;height:70px;border-radius:6px;border:1px solid var(--border);background:#FAFAFA;font-size:11px;color:var(--orange-dark);text-align:center;padding:4px;text-decoration:none">📄 ${f.name?.substring(0,12)||'PDF'}</a>`
-    ).join('');
+    const filesHtml = (q.files||[]).map(f => {
+      const isImg = f.type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(f.name||f.url||'');
+      return isImg
+        ? `<img src="${f.url}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="window.open('${f.url}','_blank')" title="${f.name||''}">`
+        : `<a href="${f.url}" target="_blank" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:70px;height:70px;border-radius:6px;border:1px solid var(--border);background:#F5F5F5;font-size:10px;color:var(--orange-dark);text-align:center;padding:4px;text-decoration:none;gap:4px">📄<span>${(f.name||'文件').substring(0,10)}</span></a>`;
+    }).join('');
 
     const div = document.createElement('div');
     div.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;background:var(--white)';
     div.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:12px;font-weight:bold;color:var(--dark)">${formatDate(q.date)}</span>
           ${q.amount?`<span style="font-size:13px;font-weight:bold;color:var(--orange)">$${parseFloat(q.amount).toLocaleString()}</span>`:''}
         </div>
-        <button style="background:none;border:none;cursor:pointer;color:var(--light);font-size:13px" onclick="deleteQuoteRecord(${idx})" title="删除">🗑️</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" onclick="editQuoteRecord(${idx})">✏️ 编辑</button>
+          <button style="background:none;border:none;cursor:pointer;color:var(--light);font-size:13px" onclick="deleteQuoteRecord(${idx})" title="删除">🗑️</button>
+        </div>
       </div>
       ${q.note?`<div style="font-size:12px;color:var(--mid);margin-bottom:6px">${q.note}</div>`:''}
-      ${filesHtml?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${filesHtml}</div>`:''}
+      ${filesHtml?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${filesHtml}</div>`:
+        (q.files?.length?'':'<div style="font-size:11px;color:var(--light)">暂无附件</div>')}
     `;
     el.appendChild(div);
   });
@@ -4084,6 +4188,8 @@ async function saveSampleModal() {
   closeSampleModal();
   renderSamplesMgmt();
   updateSampleBadge();
+  // Also refresh customer modal samples list if open
+  if (modalCustomerId) renderModalSamples();
   showToast(editingSampleCustomerId ? '样品已更新' : '样品已创建');
 }
 
@@ -4223,12 +4329,13 @@ Object.assign(window, {
   exportData, importData, handleImport, clearAllData,
   renderExhibition, dismissBanner,
   togglePriority, toggleHeatSection, toggleEmpSection, toggleEmpHeatSection,
-  renderSamplesMgmt, openNewSampleModal, editSampleModal,
+  renderSamplesMgmt, openNewSampleModal, editSampleModal, openEditSampleInModal,
   saveSampleModal, closeSampleModal,
   updateSampleStatusMgmt, saveSampleFeedback,
   filterSampleCustomers, selectSampleCustomer,
   previewSampleImages, previewSampleImagesModal, removeSampleImageFromEdit,
   previewQuoteFiles, addQuoteRecord, deleteQuoteRecord, renderModalQuotes,
+  editQuoteRecord, saveQuoteEdit, removeExistingQuoteFile,
   renderMgmtDailyReport, switchActivityTab, renderMgmtActivity,
   openNewCustomerModal, closeNewCustomerModal, saveNewCustomer,
   renderCustomers, renderClosed, renderOrders, renderReminders,
