@@ -690,6 +690,11 @@ table.data-table tr:hover td { background: #FAFAFA; }
           <option value="C">C</option>
           <option value="D">D</option>
         </select>
+        <select class="meta-select" id="filter-sort" onchange="renderCustomers()">
+          <option value="interaction">按互动次数</option>
+          <option value="recent">按最新记录日期</option>
+          <option value="created">按创建日期</option>
+        </select>
         <button class="btn btn-primary btn-sm" onclick="openNewCustomerModal()">＋ 新增客户</button>
         <div style="margin-left:auto;font-size:12px;color:var(--light)" id="customer-count"></div>
       </div>
@@ -2094,10 +2099,11 @@ function renderCustomerFilters() {
 }
 
 function renderCustomers() {
-  const q    = (document.getElementById('customer-search')?.value||'').toLowerCase();
-  const heat = document.getElementById('filter-heat')?.value||'';
-  const emp  = document.getElementById('filter-employee')?.value||'';
+  const q     = (document.getElementById('customer-search')?.value||'').toLowerCase();
+  const heat  = document.getElementById('filter-heat')?.value||'';
+  const emp   = document.getElementById('filter-employee')?.value||'';
   const grade = document.getElementById('filter-grade')?.value||'';
+  const sort  = document.getElementById('filter-sort')?.value||'interaction';
 
   let list = db.customers.filter(c => {
     if (heat && c.heat_level!==heat) return false;
@@ -2106,15 +2112,33 @@ function renderCustomers() {
     if (q) { const hay = `${c.name} ${c.country} ${c.type} ${c.employee} ${c.grade||''} ${c.contact||''}`.toLowerCase(); if (!hay.includes(q)) return false; }
     return true;
   }).sort((a,b) => {
-    // Pinned first
+    // Pinned always first
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
-    const aCount = (a.interactions||[]).length;
-    const bCount = (b.interactions||[]).length;
-    if (bCount !== aCount) return bCount - aCount;
-    const aLast = (a.interactions||[]).length ? a.interactions[a.interactions.length-1].date : a.created_at||'';
-    const bLast = (b.interactions||[]).length ? b.interactions[b.interactions.length-1].date : b.created_at||'';
-    return bLast.localeCompare(aLast);
+
+    if (sort === 'recent') {
+      // Sort by most recent record date (interaction, sample, quote, order)
+      const getLatest = c => {
+        const dates = [
+          ...(c.interactions||[]).map(i => i.date||''),
+          ...(c.samples||[]).map(s => s.date||s.prepare_date||''),
+          ...(c.quotes||[]).map(q => q.date||''),
+          c.updated_at||'', c.created_at||'',
+        ].filter(Boolean);
+        return dates.sort().reverse()[0] || '';
+      };
+      return getLatest(b).localeCompare(getLatest(a));
+    } else if (sort === 'created') {
+      return (b.created_at||'').localeCompare(a.created_at||'');
+    } else {
+      // Default: by interaction count then last interaction date
+      const aCount = (a.interactions||[]).length;
+      const bCount = (b.interactions||[]).length;
+      if (bCount !== aCount) return bCount - aCount;
+      const aLast = (a.interactions||[]).length ? a.interactions[a.interactions.length-1].date : a.created_at||'';
+      const bLast = (b.interactions||[]).length ? b.interactions[b.interactions.length-1].date : b.created_at||'';
+      return bLast.localeCompare(aLast);
+    }
   });
 
   document.getElementById('customer-count').textContent = `共 ${list.length} 个客户`;
