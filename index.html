@@ -855,7 +855,8 @@ table.data-table tr:hover td { background: #FAFAFA; }
         <button class="modal-tab active" onclick="switchModalTab('info',this)">📋 基本信息</button>
         <button class="modal-tab" onclick="switchModalTab('timeline',this)">📝 互动记录</button>
         <button class="modal-tab" onclick="switchModalTab('samples',this)">🌲 样品记录</button>
-        <button class="modal-tab" onclick="switchModalTab('orders_tab',this)">🏆 订单记录</button>
+        <button class="modal-tab" onclick="switchModalTab('quotes',this)">💰 报价记录</button>
+        <button class="modal-tab" id="modal-orders-tab-btn" onclick="switchModalTab('orders_tab',this)">🏆 订单记录</button>
       </div>
 
       <!-- Tab: Basic Info -->
@@ -981,6 +982,37 @@ table.data-table tr:hover td { background: #FAFAFA; }
         </div>
         <!-- Sample list -->
         <div id="modal-samples-list"></div>
+      </div>
+
+      <!-- Tab: Quotes -->
+      <div id="modal-tab-quotes" class="modal-tab-pane">
+        <!-- Add quote form -->
+        <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:14px">
+          <div style="font-size:12px;font-weight:bold;color:var(--dark);margin-bottom:10px">＋ 添加报价记录</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-bottom:8px">
+            <div class="field-item"><label>报价日期</label>
+              <input class="meta-input" id="quote-date" type="date" style="width:100%">
+            </div>
+            <div class="field-item"><label>报价金额 ($)</label>
+              <input class="meta-input" id="quote-amount" type="number" style="width:100%" placeholder="如：12500">
+            </div>
+            <div class="field-item" style="grid-column:1/-1"><label>产品/备注</label>
+              <input class="meta-input" id="quote-note" style="width:100%" placeholder="如：HPL 0.8mm 1000张 FOB报价">
+            </div>
+            <div class="field-item" style="grid-column:1/-1">
+              <label>上传图片或PDF（可多个）</label>
+              <input type="file" id="quote-files" accept="image/*,.pdf" multiple style="display:none" onchange="previewQuoteFiles()">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('quote-files').click()">📎 选择文件</button>
+                <span id="quote-files-label" style="font-size:11px;color:var(--light)">未选择</span>
+              </div>
+              <div id="quote-files-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="addQuoteRecord()">💾 保存报价记录</button>
+        </div>
+        <!-- Quote list -->
+        <div id="modal-quotes-list"></div>
       </div>
 
       <!-- Tab: Orders -->
@@ -2846,6 +2878,7 @@ function switchModalTab(tab, el) {
   if (tab==='orders_tab') renderModalOrders();
   if (tab==='samples')    renderModalSamples();
   if (tab==='timeline')   renderModalTimeline();
+  if (tab==='quotes')     renderModalQuotes();
 }
 
 function openCustomer(id) {
@@ -2950,6 +2983,20 @@ function openCustomer(id) {
   document.getElementById('sample-tracking').value = '';
   document.getElementById('sample-content').value = '';
   document.getElementById('sample-note').value = '';
+
+  // Reset quote form
+  const qd = document.getElementById('quote-date');
+  const qa = document.getElementById('quote-amount');
+  const qn = document.getElementById('quote-note');
+  const qf = document.getElementById('quote-files');
+  const ql = document.getElementById('quote-files-label');
+  const qp = document.getElementById('quote-files-preview');
+  if (qd) qd.value = today();
+  if (qa) qa.value = '';
+  if (qn) qn.value = '';
+  if (qf) qf.value = '';
+  if (ql) ql.textContent = '未选择';
+  if (qp) qp.innerHTML = '';
 
   // Reset to first tab
   switchModalTab('info', document.querySelector('.modal-tab'));
@@ -3580,7 +3627,117 @@ function showToast(msg) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  SAMPLES MANAGEMENT
+//  QUOTE RECORDS
+// ════════════════════════════════════════════════════════════
+function previewQuoteFiles() {
+  const files = document.getElementById('quote-files')?.files;
+  if (!files?.length) return;
+  document.getElementById('quote-files-label').textContent = `已选择 ${files.length} 个文件`;
+  const preview = document.getElementById('quote-files-preview');
+  preview.innerHTML = '';
+  Array.from(files).forEach(file => {
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      preview.innerHTML += `<img src="${url}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">`;
+    } else {
+      preview.innerHTML += `<div style="width:70px;height:70px;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--mid);background:#FAFAFA;text-align:center;padding:4px">📄 ${file.name.substring(0,12)}</div>`;
+    }
+  });
+}
+
+async function addQuoteRecord() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c) return;
+  const date   = document.getElementById('quote-date').value || today();
+  const amount = document.getElementById('quote-amount').value.trim();
+  const note   = document.getElementById('quote-note').value.trim();
+  if (!amount && !note) { showToast('请填写报价金额或备注'); return; }
+
+  c.quotes = c.quotes || [];
+  const quoteId = 'q_' + Date.now();
+  const record = { id: quoteId, date, amount, note, files: [] };
+
+  // Upload files
+  const files = document.getElementById('quote-files')?.files;
+  if (files?.length) {
+    showToast('正在上传文件...');
+    for (const file of Array.from(files)) {
+      try {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const path = `quotes/${currentUser.uid}/${modalCustomerId}_${quoteId}_${Date.now()}.${ext}`;
+        const storageRef = ref(storage, path);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        record.files.push({ url, path, name: file.name, type: file.type });
+      } catch(e) { console.error('文件上传失败:', e); }
+    }
+  }
+
+  c.quotes.push(record);
+  c.updated_at = today();
+  saveData(db);
+
+  // Reset form
+  document.getElementById('quote-date').value = today();
+  document.getElementById('quote-amount').value = '';
+  document.getElementById('quote-note').value = '';
+  document.getElementById('quote-files').value = '';
+  document.getElementById('quote-files-label').textContent = '未选择';
+  document.getElementById('quote-files-preview').innerHTML = '';
+  renderModalQuotes();
+  showToast('报价记录已保存');
+}
+
+function renderModalQuotes() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c) return;
+  const quotes = [...(c.quotes||[])].reverse();
+  const el = document.getElementById('modal-quotes-list');
+  if (!quotes.length) {
+    el.innerHTML = '<div style="color:var(--light);font-size:12px;padding:12px 0">暂无报价记录，请在上方添加。</div>';
+    return;
+  }
+  el.innerHTML = '';
+  quotes.forEach((q, ri) => {
+    const idx = (c.quotes.length - 1) - ri;
+    const filesHtml = (q.files||[]).map(f =>
+      f.type?.startsWith('image/')
+        ? `<img src="${f.url}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="window.open('${f.url}','_blank')">`
+        : `<a href="${f.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;width:70px;height:70px;border-radius:6px;border:1px solid var(--border);background:#FAFAFA;font-size:11px;color:var(--orange-dark);text-align:center;padding:4px;text-decoration:none">📄 ${f.name?.substring(0,12)||'PDF'}</a>`
+    ).join('');
+
+    const div = document.createElement('div');
+    div.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;background:var(--white)';
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;font-weight:bold;color:var(--dark)">${formatDate(q.date)}</span>
+          ${q.amount?`<span style="font-size:13px;font-weight:bold;color:var(--orange)">$${parseFloat(q.amount).toLocaleString()}</span>`:''}
+        </div>
+        <button style="background:none;border:none;cursor:pointer;color:var(--light);font-size:13px" onclick="deleteQuoteRecord(${idx})" title="删除">🗑️</button>
+      </div>
+      ${q.note?`<div style="font-size:12px;color:var(--mid);margin-bottom:6px">${q.note}</div>`:''}
+      ${filesHtml?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${filesHtml}</div>`:''}
+    `;
+    el.appendChild(div);
+  });
+}
+
+function deleteQuoteRecord(idx) {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c || !c.quotes) return;
+  if (!confirm('确定删除此报价记录？')) return;
+  c.quotes.splice(idx, 1);
+  c.updated_at = today();
+  saveData(db);
+  renderModalQuotes();
+  showToast('已删除');
+}
+
+// ════════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════
 const SAMPLE_STATUSES = ['正在准备中','待寄出','已寄出','已签收','客户已反馈'];
 const SAMPLE_STATUS_COLORS = {
@@ -4071,6 +4228,7 @@ Object.assign(window, {
   updateSampleStatusMgmt, saveSampleFeedback,
   filterSampleCustomers, selectSampleCustomer,
   previewSampleImages, previewSampleImagesModal, removeSampleImageFromEdit,
+  previewQuoteFiles, addQuoteRecord, deleteQuoteRecord, renderModalQuotes,
   renderMgmtDailyReport, switchActivityTab, renderMgmtActivity,
   openNewCustomerModal, closeNewCustomerModal, saveNewCustomer,
   renderCustomers, renderClosed, renderOrders, renderReminders,
