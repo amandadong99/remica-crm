@@ -887,6 +887,7 @@ table.data-table tr:hover td { background: #FAFAFA; }
             <option value="interested">感兴趣</option>
             <option value="not">不参加</option>
           </select>
+          <button id="modal-pin-btn" onclick="togglePin()" class="btn btn-sm" style="margin-left:8px;font-size:12px;padding:4px 10px">📌 置顶</button>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
           <label style="font-size:12px;color:var(--light)">跟进日期</label>
@@ -966,6 +967,15 @@ table.data-table tr:hover td { background: #FAFAFA; }
             <div class="field-item"><label>寄出日期</label><input class="meta-input" id="sample-date" type="date" style="width:100%"></div>
             <div class="field-item"><label>快递单号</label><input class="meta-input" id="sample-tracking" style="width:100%" placeholder="如：SF1234567890"></div>
             <div class="field-item" style="grid-column:1/-1"><label>备注</label><input class="meta-input" id="sample-note" style="width:100%" placeholder="如：客户对石纹样品满意"></div>
+            <div class="field-item" style="grid-column:1/-1">
+              <label>样品图片（可多张）</label>
+              <input type="file" id="sample-images" accept="image/*" multiple style="display:none" onchange="previewSampleImages()">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('sample-images').click()">📷 选择图片</button>
+                <span id="sample-images-label" style="font-size:11px;color:var(--light)">未选择</span>
+              </div>
+              <div id="sample-images-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+            </div>
           </div>
           <button class="btn btn-primary btn-sm" onclick="addSampleRecord()">💾 保存样品记录</button>
         </div>
@@ -1061,10 +1071,12 @@ const BACKUP_INTERVAL_DAYS = 10;
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut as fbSignOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, onSnapshot, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const app      = initializeApp(FIREBASE_CONFIG);
 const auth     = getAuth(app);
 const firestore = getFirestore(app);
+const storage  = getStorage(app);
 const provider = new GoogleAuthProvider();
 
 let currentUser = null;
@@ -1106,6 +1118,23 @@ async function saveOrder(o) {
 }
 async function deleteCustomerDoc(id) { await deleteDoc(doc(firestore, 'customers', id)); }
 async function deleteOrderDoc(id)    { await deleteDoc(doc(firestore, 'orders', id)); }
+
+// ════════════════════════════════════════════════════════════
+//  STORAGE HELPERS
+// ════════════════════════════════════════════════════════════
+async function uploadSampleImage(file, customerId, sampleId) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const path = `samples/${currentUser.uid}/${customerId}_${sampleId}_${Date.now()}.${ext}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file);
+  const url = await getDownloadURL(storageRef);
+  return { url, path };
+}
+
+async function deleteSampleImage(path) {
+  if (!path) return;
+  try { await deleteObject(ref(storage, path)); } catch(e) { console.warn('删除图片失败:', e); }
+}
 
 function loadSettings() {
   try { const s = localStorage.getItem('qt_ci_settings_v1'); return s ? JSON.parse(s) : { apiKey:'', employees:['Amanda','Judy','Mia'] }; }
@@ -1454,7 +1483,11 @@ function renderHeatBoard() {
     { key:'closed', label:'🏆 成交 — 已成交客户', cls:'hs-closed' },
   ];
   sections.forEach(sec => {
-    const list = db.customers.filter(c=>c.heat_level===sec.key).sort((a,b)=>(b.updated_at||'').localeCompare(a.updated_at||''));
+    const list = db.customers.filter(c=>c.heat_level===sec.key).sort((a,b)=>{
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return (b.updated_at||'').localeCompare(a.updated_at||'');
+    });
     if (!list.length && sec.key!=='hot') return;
     const secId = `heat-section-list-${sec.key}`;
     const arrowId = `heat-section-arrow-${sec.key}`;
@@ -1609,6 +1642,7 @@ function buildKanbanCard(c) {
 function buildCustomerRow(c) {
   const div = document.createElement('div');
   div.className = 'customer-row';
+  if (c.pinned) div.style.cssText = 'border-left:3px solid #FFB300;background:#FFFDF0';
   const rd = c.reminder_date ? daysDiff(c.reminder_date) : null;
   let remHtml = '';
   if (c.reminder_date) {
@@ -1619,7 +1653,7 @@ function buildCustomerRow(c) {
   const last = c.interactions&&c.interactions.length ? c.interactions[c.interactions.length-1].date : c.created_at;
   div.innerHTML = `
     <div style="min-width:140px;max-width:200px">
-      <div class="cr-name">${c.name}</div>
+      <div class="cr-name">${c.pinned?'📌 ':''}${c.name}</div>
       ${c.contact ? `<div style="font-size:11px;color:var(--light);margin-top:1px">👤 ${c.contact}</div>` : ''}
     </div>
     <div class="cr-country">${c.country||'—'}</div>
@@ -1989,6 +2023,9 @@ function renderCustomers() {
     if (q) { const hay = `${c.name} ${c.country} ${c.type} ${c.employee} ${c.grade||''} ${c.contact||''}`.toLowerCase(); if (!hay.includes(q)) return false; }
     return true;
   }).sort((a,b) => {
+    // Pinned first
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
     const aCount = (a.interactions||[]).length;
     const bCount = (b.interactions||[]).length;
     if (bCount !== aCount) return bCount - aCount;
@@ -2883,6 +2920,15 @@ function openCustomer(id) {
   document.getElementById('modal-heat-select').value    = c.heat_level||'cool';
   document.getElementById('modal-grade-select').value   = c.grade||'';
   document.getElementById('modal-exhib-select').value   = c.exhibition_status||'';
+  // Set pin button state
+  const pinBtn = document.getElementById('modal-pin-btn');
+  if (pinBtn) {
+    pinBtn.textContent = c.pinned ? '📌 已置顶' : '📌 置顶';
+    pinBtn.style.background = c.pinned ? '#FFF8E1' : '';
+    pinBtn.style.borderColor = c.pinned ? '#FFB300' : '';
+    pinBtn.style.color = c.pinned ? '#E65100' : '';
+    pinBtn.style.fontWeight = c.pinned ? 'bold' : '';
+  }
   document.getElementById('modal-reminder-date').value  = c.reminder_date||'';
   document.getElementById('modal-follow-cycle').value   = c.follow_cycle||'';
   document.getElementById('modal-note-input').value     = '';
@@ -3134,19 +3180,22 @@ function renderModalSamples() {
       </div>
       <div style="font-size:13px;color:var(--dark)">${s.content||'—'}</div>
       ${s.note?`<div style="font-size:11px;color:var(--mid);margin-top:4px">💬 ${s.note}</div>`:''}
+      ${(s.images||[]).length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${(s.images||[]).map(img=>`<img src="${img.url}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="window.open('${img.url}','_blank')">`).join('')}</div>`:''}
     `;
     el.appendChild(div);
   });
 }
 
-function addSampleRecord() {
+async function addSampleRecord() {
   if (!modalCustomerId) return;
   const c = db.customers.find(x => x.id === modalCustomerId);
   if (!c) return;
   const content = document.getElementById('sample-content').value.trim();
   if (!content) { showToast('请填写样品内容'); return; }
   c.samples = c.samples || [];
-  c.samples.push({
+
+  const sampleId = 's_' + Date.now();
+  const record = {
     prepare_date:     document.getElementById('sample-prepare-date').value || today(),
     prepare_deadline: document.getElementById('sample-prepare-deadline').value || '',
     date:             document.getElementById('sample-date').value || '',
@@ -3154,7 +3203,22 @@ function addSampleRecord() {
     content,
     status:           document.getElementById('sample-status').value,
     note:             document.getElementById('sample-note').value.trim(),
-  });
+    images: [],
+  };
+
+  // Upload images
+  const files = document.getElementById('sample-images')?.files;
+  if (files?.length) {
+    showToast('正在上传图片...');
+    for (const file of Array.from(files)) {
+      try {
+        const result = await uploadSampleImage(file, modalCustomerId, sampleId);
+        record.images.push(result);
+      } catch(e) { console.error('图片上传失败:', e); }
+    }
+  }
+
+  c.samples.push(record);
   c.updated_at = today();
   saveData(db);
   // Reset form
@@ -3164,6 +3228,9 @@ function addSampleRecord() {
   document.getElementById('sample-date').value = '';
   document.getElementById('sample-prepare-date').value = '';
   document.getElementById('sample-prepare-deadline').value = '';
+  document.getElementById('sample-images').value = '';
+  document.getElementById('sample-images-label').textContent = '未选择';
+  document.getElementById('sample-images-preview').innerHTML = '';
   renderModalSamples();
   showToast('样品记录已保存');
 }
@@ -3193,6 +3260,25 @@ function deleteSample(idx) {
 
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); modalCustomerId = null; }
 document.getElementById('modal-overlay').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
+
+function togglePin() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c) return;
+  c.pinned = !c.pinned;
+  c.updated_at = today();
+  saveData(db);
+  const pinBtn = document.getElementById('modal-pin-btn');
+  if (pinBtn) {
+    pinBtn.textContent = c.pinned ? '📌 已置顶' : '📌 置顶';
+    pinBtn.style.background = c.pinned ? '#FFF8E1' : '';
+    pinBtn.style.borderColor = c.pinned ? '#FFB300' : '';
+    pinBtn.style.color = c.pinned ? '#E65100' : '';
+    pinBtn.style.fontWeight = c.pinned ? 'bold' : '';
+  }
+  renderAll();
+  showToast(c.pinned ? '已置顶' : '已取消置顶');
+}
 
 function updateHeat() {
   if (!modalCustomerId) return;
@@ -3584,6 +3670,7 @@ function renderSamplesMgmt() {
       ${s.tracking?`<div style="font-size:11px;color:#888;margin-bottom:6px">📮 快递单号：${s.tracking}</div>`:''}
       ${s.date?`<div style="font-size:11px;color:#888;margin-bottom:6px">📅 寄出日期：${s.date}</div>`:''}
       ${s.note?`<div style="font-size:11px;color:#888;margin-bottom:8px;background:#F9F9F9;border-radius:5px;padding:5px 8px">💬 ${s.note}</div>`:''}
+      ${(s.images||[]).length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${(s.images||[]).map(img=>`<img src="${img.url}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="window.open('${img.url}','_blank')">`).join('')}</div>`:''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${statusBtns}</div>
       ${s.status==='客户已反馈'?`
       <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
@@ -3678,6 +3765,26 @@ function renderSampleForm(s, preCustomerId) {
       <div class="field-item" style="grid-column:1/-1"><label>备注</label>
         <input class="meta-input" id="sf-note" value="${s?.note||''}" style="width:100%" placeholder="备注信息">
       </div>
+      <div class="field-item" style="grid-column:1/-1">
+        <label>样品图片（可多张）</label>
+        <input type="file" id="sf-images" accept="image/*" multiple style="display:none" onchange="previewSampleImagesModal()">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('sf-images').click()">📷 选择图片</button>
+          <span id="sf-images-label" style="font-size:11px;color:var(--light)">未选择</span>
+        </div>
+        <div id="sf-images-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+        ${(s?.images||[]).length ? `
+        <div style="margin-top:8px">
+          <div style="font-size:11px;color:var(--light);margin-bottom:6px">已有图片：</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap" id="sf-existing-images">
+            ${(s.images||[]).map((img,i)=>`
+              <div style="position:relative">
+                <img src="${img.url}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="window.open('${img.url}')">
+                <button onclick="removeSampleImageFromEdit(${i})" style="position:absolute;top:-6px;right:-6px;background:#E53935;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:1">×</button>
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+      </div>
     </div>
   `;
 
@@ -3685,6 +3792,42 @@ function renderSampleForm(s, preCustomerId) {
   setTimeout(() => {
     document.addEventListener('click', closeSampleDropdown, true);
   }, 100);
+}
+
+// Image preview for customer modal sample form
+function previewSampleImages() {
+  const files = document.getElementById('sample-images')?.files;
+  if (!files?.length) return;
+  document.getElementById('sample-images-label').textContent = `已选择 ${files.length} 张`;
+  const preview = document.getElementById('sample-images-preview');
+  preview.innerHTML = '';
+  Array.from(files).forEach(file => {
+    const url = URL.createObjectURL(file);
+    preview.innerHTML += `<img src="${url}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">`;
+  });
+}
+
+// Image preview for sample modal
+function previewSampleImagesModal() {
+  const files = document.getElementById('sf-images')?.files;
+  if (!files?.length) return;
+  document.getElementById('sf-images-label').textContent = `已选择 ${files.length} 张`;
+  const preview = document.getElementById('sf-images-preview');
+  preview.innerHTML = '';
+  Array.from(files).forEach(file => {
+    const url = URL.createObjectURL(file);
+    preview.innerHTML += `<img src="${url}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">`;
+  });
+}
+
+// Track images to remove when editing
+let _sampleImagesToRemove = [];
+function removeSampleImageFromEdit(i) {
+  const container = document.getElementById('sf-existing-images');
+  if (!container) return;
+  const imgs = container.querySelectorAll('div');
+  if (imgs[i]) imgs[i].remove();
+  _sampleImagesToRemove.push(i);
 }
 
 function filterSampleCustomers() {
@@ -3722,7 +3865,7 @@ function closeSampleDropdown(e) {
   }
 }
 
-function saveSampleModal() {
+async function saveSampleModal() {
   const customerId = document.getElementById('sf-customer').value;
   const content    = document.getElementById('sf-content').value.trim();
   if (!customerId) { showToast('请选择客户'); return; }
@@ -3730,6 +3873,34 @@ function saveSampleModal() {
   const c = db.customers.find(x => x.id === customerId);
   if (!c) return;
   c.samples = c.samples || [];
+
+  const sampleId = 's_' + Date.now();
+
+  // Handle existing images (minus removed ones)
+  let existingImages = [];
+  if (editingSampleCustomerId && editingSampleIdx !== null) {
+    const oldC = db.customers.find(x => x.id === editingSampleCustomerId);
+    const oldSample = oldC?.samples?.[editingSampleIdx];
+    existingImages = (oldSample?.images || []).filter((_, i) => !_sampleImagesToRemove.includes(i));
+    // Delete removed images from storage
+    for (const i of _sampleImagesToRemove) {
+      if (oldSample?.images?.[i]?.path) await deleteSampleImage(oldSample.images[i].path);
+    }
+  }
+  _sampleImagesToRemove = [];
+
+  // Upload new images
+  const files = document.getElementById('sf-images')?.files;
+  if (files?.length) {
+    showToast('正在上传图片...');
+    for (const file of Array.from(files)) {
+      try {
+        const result = await uploadSampleImage(file, customerId, sampleId);
+        existingImages.push(result);
+      } catch(e) { console.error('图片上传失败:', e); }
+    }
+  }
+
   const record = {
     prepare_date:     document.getElementById('sf-prepare-date').value || today(),
     prepare_deadline: document.getElementById('sf-prepare-deadline').value || '',
@@ -3738,9 +3909,9 @@ function saveSampleModal() {
     status:           document.getElementById('sf-status').value,
     tracking:         document.getElementById('sf-tracking').value.trim(),
     note:             document.getElementById('sf-note').value.trim(),
+    images:           existingImages,
   };
   if (editingSampleCustomerId && editingSampleIdx !== null) {
-    // Edit existing — may have moved to different customer
     if (editingSampleCustomerId !== customerId) {
       const oldC = db.customers.find(x => x.id === editingSampleCustomerId);
       if (oldC?.samples) oldC.samples.splice(editingSampleIdx, 1);
@@ -3882,7 +4053,7 @@ document.getElementById('new-customer-modal-overlay').addEventListener('click', 
 Object.assign(window, {
   switchView, switchDashTab, switchReminderTab,
   openCustomer, closeModal, saveCustomerFields,
-  updateHeat, updateGrade, updateExhibition, updateReminder,
+  updateHeat, updateGrade, updateExhibition, updateReminder, togglePin,
   addManualNote, deleteCurrentCustomer,
   addInteractionRecord, renderModalTimeline, switchModalTab,
   saveBulkTimeline, addSampleRecord, updateSampleStatus, deleteSample,
@@ -3899,6 +4070,7 @@ Object.assign(window, {
   saveSampleModal, closeSampleModal,
   updateSampleStatusMgmt, saveSampleFeedback,
   filterSampleCustomers, selectSampleCustomer,
+  previewSampleImages, previewSampleImagesModal, removeSampleImageFromEdit,
   renderMgmtDailyReport, switchActivityTab, renderMgmtActivity,
   openNewCustomerModal, closeNewCustomerModal, saveNewCustomer,
   renderCustomers, renderClosed, renderOrders, renderReminders,
