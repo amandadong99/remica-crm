@@ -967,7 +967,44 @@ table.data-table tr:hover td { background: #FAFAFA; }
             <div class="field-item"><label>预计准备完成日期 ⏰</label><input class="meta-input" id="sample-prepare-deadline" type="date" style="width:100%" placeholder="到期提醒"></div>
             <div class="field-item"><label>寄出日期</label><input class="meta-input" id="sample-date" type="date" style="width:100%"></div>
             <div class="field-item"><label>快递单号</label><input class="meta-input" id="sample-tracking" style="width:100%" placeholder="如：SF1234567890"></div>
-            <div class="field-item" style="grid-column:1/-1"><label>备注</label><input class="meta-input" id="sample-note" style="width:100%" placeholder="如：客户对石纹样品满意"></div>
+            <div class="field-item" style="grid-column:1/-1"><label>收件地址</label><input class="meta-input" id="sample-address" style="width:100%" placeholder="收件人姓名 + 地址"></div>
+
+            <!-- 样品费 -->
+            <div class="field-item" style="grid-column:1/-1">
+              <label>样品费</label>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <select class="meta-select" id="sample-fee-type" style="min-width:100px" onchange="toggleSampleFeeFields('modal')">
+                  <option value="free">免费</option>
+                  <option value="charged">收费</option>
+                </select>
+                <span id="sample-fee-amount-wrap" style="display:none;gap:8px;align-items:center">
+                  <input class="meta-input" id="sample-fee-amount" type="number" placeholder="金额($)" style="width:100px">
+                  <select class="meta-select" id="sample-fee-payer">
+                    <option value="us">我方支付</option>
+                    <option value="client">客户支付</option>
+                  </select>
+                </span>
+              </div>
+            </div>
+
+            <!-- 快递费 -->
+            <div class="field-item" style="grid-column:1/-1">
+              <label>快递类型 & 费用</label>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <select class="meta-select" id="sample-express-type" style="min-width:120px">
+                  <option value="domestic">国内快递</option>
+                  <option value="international">国际快件</option>
+                </select>
+                <input class="meta-input" id="sample-express-fee" type="number" placeholder="快递费($)" style="width:100px">
+                <select class="meta-select" id="sample-express-payer">
+                  <option value="us">我方支付</option>
+                  <option value="client">客户支付</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-item" style="grid-column:1/-1"><label>客户反馈</label><input class="meta-input" id="sample-feedback" style="width:100%" placeholder="客户收到样品后的反馈意见"></div>
+            <div class="field-item" style="grid-column:1/-1"><label>备注</label><input class="meta-input" id="sample-note" style="width:100%" placeholder="其他备注"></div>
             <div class="field-item" style="grid-column:1/-1">
               <label>样品图片（可多张）</label>
               <input type="file" id="sample-images" accept="image/*" multiple style="display:none" onchange="previewSampleImages()">
@@ -2983,6 +3020,12 @@ function openCustomer(id) {
   document.getElementById('sample-tracking').value = '';
   document.getElementById('sample-content').value = '';
   document.getElementById('sample-note').value = '';
+  const sAddr = document.getElementById('sample-address'); if (sAddr) sAddr.value = '';
+  const sFeeT = document.getElementById('sample-fee-type'); if (sFeeT) sFeeT.value = 'free';
+  const sFeeA = document.getElementById('sample-fee-amount'); if (sFeeA) sFeeA.value = '';
+  const sFeeW = document.getElementById('sample-fee-amount-wrap'); if (sFeeW) sFeeW.style.display = 'none';
+  const sExpF = document.getElementById('sample-express-fee'); if (sExpF) sExpF.value = '';
+  const sFB   = document.getElementById('sample-feedback'); if (sFB) sFB.value = '';
 
   // Reset quote form
   const qd = document.getElementById('quote-date');
@@ -3227,7 +3270,14 @@ function renderModalSamples() {
         </div>
       </div>
       <div style="font-size:13px;color:var(--dark)">${s.content||'—'}</div>
-      ${s.note?`<div style="font-size:11px;color:var(--mid);margin-top:4px">💬 ${s.note}</div>`:''}
+      ${s.address?`<div style="font-size:11px;color:var(--mid);margin-top:4px">📍 ${s.address}</div>`:''}
+      ${(()=>{
+        const feeLabel = s.fee_type==='charged' ? `样品费：$${s.fee_amount||'—'} (${s.fee_payer==='us'?'我方':'客户'}支付)` : '样品费：免费';
+        const expLabel = `${s.express_type==='international'?'🌍 国际快件':'📦 国内快递'}${s.express_fee?` $${s.express_fee}`:''}${s.express_payer?' ('+( s.express_payer==='us'?'我方':'客户')+'支付)':''}`;
+        return `<div style="font-size:11px;color:var(--mid);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap"><span>${feeLabel}</span><span>${expLabel}</span></div>`;
+      })()}
+      ${s.feedback?`<div style="font-size:11px;color:var(--cool);margin-top:4px;background:#E8F5E9;border-radius:4px;padding:4px 8px">💬 客户反馈：${s.feedback}</div>`:''}
+      ${s.note?`<div style="font-size:11px;color:var(--mid);margin-top:4px">备注：${s.note}</div>`:''}
       ${(s.images||[]).length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${(s.images||[]).map(img=>`<img src="${img.url}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="window.open('${img.url}','_blank')">`).join('')}</div>`:''}
     `;
     el.appendChild(div);
@@ -3255,6 +3305,14 @@ async function addSampleRecord() {
     tracking:         document.getElementById('sample-tracking').value.trim(),
     content,
     status:           document.getElementById('sample-status').value,
+    address:          document.getElementById('sample-address').value.trim(),
+    fee_type:         document.getElementById('sample-fee-type').value,
+    fee_amount:       document.getElementById('sample-fee-amount').value || '',
+    fee_payer:        document.getElementById('sample-fee-payer').value,
+    express_type:     document.getElementById('sample-express-type').value,
+    express_fee:      document.getElementById('sample-express-fee').value || '',
+    express_payer:    document.getElementById('sample-express-payer').value,
+    feedback:         document.getElementById('sample-feedback').value.trim(),
     note:             document.getElementById('sample-note').value.trim(),
     images: [],
   };
@@ -3281,6 +3339,12 @@ async function addSampleRecord() {
   document.getElementById('sample-date').value = '';
   document.getElementById('sample-prepare-date').value = '';
   document.getElementById('sample-prepare-deadline').value = '';
+  document.getElementById('sample-address').value = '';
+  document.getElementById('sample-fee-type').value = 'free';
+  document.getElementById('sample-fee-amount').value = '';
+  document.getElementById('sample-fee-amount-wrap').style.display = 'none';
+  document.getElementById('sample-express-fee').value = '';
+  document.getElementById('sample-feedback').value = '';
   document.getElementById('sample-images').value = '';
   document.getElementById('sample-images-label').textContent = '未选择';
   document.getElementById('sample-images-preview').innerHTML = '';
@@ -3928,9 +3992,15 @@ function renderSamplesMgmt() {
         <span style="margin-left:auto;font-size:11px;color:#aaa">${s.prepare_date?'准备：'+s.prepare_date:''}</span>
       </div>
       <div style="font-size:13px;color:#333;margin-bottom:6px">${s.content||'—'}</div>
-      ${s.tracking?`<div style="font-size:11px;color:#888;margin-bottom:6px">📮 快递单号：${s.tracking}</div>`:''}
-      ${s.date?`<div style="font-size:11px;color:#888;margin-bottom:6px">📅 寄出日期：${s.date}</div>`:''}
-      ${s.note?`<div style="font-size:11px;color:#888;margin-bottom:8px;background:#F9F9F9;border-radius:5px;padding:5px 8px">💬 ${s.note}</div>`:''}
+      ${s.address?`<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${s.address}</div>`:''}
+      ${s.tracking?`<div style="font-size:11px;color:#888;margin-bottom:4px">📮 快递单号：${s.tracking}</div>`:''}
+      ${s.date?`<div style="font-size:11px;color:#888;margin-bottom:4px">📅 寄出日期：${s.date}</div>`:''}
+      <div style="font-size:11px;color:#888;margin-bottom:4px;display:flex;gap:12px;flex-wrap:wrap">
+        <span>${s.fee_type==='charged'?`样品费：$${s.fee_amount||'—'} (${s.fee_payer==='us'?'我方':'客户'}支付)`:'样品费：免费'}</span>
+        <span>${s.express_type==='international'?'🌍 国际快件':'📦 国内快递'}${s.express_fee?` $${s.express_fee}`:''}${s.express_payer?' ('+(s.express_payer==='us'?'我方':'客户')+'支付)':''}</span>
+      </div>
+      ${s.feedback?`<div style="font-size:11px;color:#2E7D32;margin-bottom:6px;background:#E8F5E9;border-radius:4px;padding:4px 8px">💬 客户反馈：${s.feedback}</div>`:''}
+      ${s.note?`<div style="font-size:11px;color:#888;margin-bottom:8px;background:#F9F9F9;border-radius:5px;padding:5px 8px">备注：${s.note}</div>`:''}
       ${(s.images||[]).length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${(s.images||[]).map(img=>`<img src="${img.url}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="window.open('${img.url}','_blank')">`).join('')}</div>`:''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${statusBtns}</div>
       ${s.status==='客户已反馈'?`
@@ -4023,6 +4093,47 @@ function renderSampleForm(s, preCustomerId) {
       <div class="field-item" style="grid-column:1/-1"><label>快递单号</label>
         <input class="meta-input" id="sf-tracking" value="${s?.tracking||''}" style="width:100%" placeholder="快递单号">
       </div>
+      <div class="field-item" style="grid-column:1/-1"><label>收件地址</label>
+        <input class="meta-input" id="sf-address" value="${s?.address||''}" style="width:100%" placeholder="收件人姓名 + 地址">
+      </div>
+
+      <!-- 样品费 -->
+      <div class="field-item" style="grid-column:1/-1">
+        <label>样品费</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select class="meta-select" id="sf-fee-type" style="min-width:100px" onchange="toggleSampleFeeFields('modal-sf')">
+            <option value="free" ${(s?.fee_type||'free')==='free'?'selected':''}>免费</option>
+            <option value="charged" ${s?.fee_type==='charged'?'selected':''}>收费</option>
+          </select>
+          <span id="sf-fee-amount-wrap" style="display:${s?.fee_type==='charged'?'flex':'none'};gap:8px;align-items:center">
+            <input class="meta-input" id="sf-fee-amount" type="number" placeholder="金额($)" style="width:100px" value="${s?.fee_amount||''}">
+            <select class="meta-select" id="sf-fee-payer">
+              <option value="us" ${(s?.fee_payer||'us')==='us'?'selected':''}>我方支付</option>
+              <option value="client" ${s?.fee_payer==='client'?'selected':''}>客户支付</option>
+            </select>
+          </span>
+        </div>
+      </div>
+
+      <!-- 快递费 -->
+      <div class="field-item" style="grid-column:1/-1">
+        <label>快递类型 & 费用</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select class="meta-select" id="sf-express-type" style="min-width:120px">
+            <option value="domestic" ${(s?.express_type||'domestic')==='domestic'?'selected':''}>国内快递</option>
+            <option value="international" ${s?.express_type==='international'?'selected':''}>国际快件</option>
+          </select>
+          <input class="meta-input" id="sf-express-fee" type="number" placeholder="快递费($)" style="width:100px" value="${s?.express_fee||''}">
+          <select class="meta-select" id="sf-express-payer">
+            <option value="us" ${(s?.express_payer||'us')==='us'?'selected':''}>我方支付</option>
+            <option value="client" ${s?.express_payer==='client'?'selected':''}>客户支付</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-item" style="grid-column:1/-1"><label>客户反馈</label>
+        <input class="meta-input" id="sf-feedback" value="${s?.feedback||''}" style="width:100%" placeholder="客户收到样品后的反馈意见">
+      </div>
       <div class="field-item" style="grid-column:1/-1"><label>备注</label>
         <input class="meta-input" id="sf-note" value="${s?.note||''}" style="width:100%" placeholder="备注信息">
       </div>
@@ -4053,6 +4164,14 @@ function renderSampleForm(s, preCustomerId) {
   setTimeout(() => {
     document.addEventListener('click', closeSampleDropdown, true);
   }, 100);
+}
+
+function toggleSampleFeeFields(prefix) {
+  const typeId  = prefix === 'modal' ? 'sample-fee-type'        : 'sf-fee-type';
+  const wrapId  = prefix === 'modal' ? 'sample-fee-amount-wrap' : 'sf-fee-amount-wrap';
+  const val = document.getElementById(typeId)?.value;
+  const wrap = document.getElementById(wrapId);
+  if (wrap) wrap.style.display = val === 'charged' ? 'flex' : 'none';
 }
 
 // Image preview for customer modal sample form
@@ -4169,6 +4288,14 @@ async function saveSampleModal() {
     content,
     status:           document.getElementById('sf-status').value,
     tracking:         document.getElementById('sf-tracking').value.trim(),
+    address:          document.getElementById('sf-address').value.trim(),
+    fee_type:         document.getElementById('sf-fee-type').value,
+    fee_amount:       document.getElementById('sf-fee-amount').value || '',
+    fee_payer:        document.getElementById('sf-fee-payer').value,
+    express_type:     document.getElementById('sf-express-type').value,
+    express_fee:      document.getElementById('sf-express-fee').value || '',
+    express_payer:    document.getElementById('sf-express-payer').value,
+    feedback:         document.getElementById('sf-feedback').value.trim(),
     note:             document.getElementById('sf-note').value.trim(),
     images:           existingImages,
   };
@@ -4334,6 +4461,7 @@ Object.assign(window, {
   updateSampleStatusMgmt, saveSampleFeedback,
   filterSampleCustomers, selectSampleCustomer,
   previewSampleImages, previewSampleImagesModal, removeSampleImageFromEdit,
+  toggleSampleFeeFields,
   previewQuoteFiles, addQuoteRecord, deleteQuoteRecord, renderModalQuotes,
   editQuoteRecord, saveQuoteEdit, removeExistingQuoteFile,
   renderMgmtDailyReport, switchActivityTab, renderMgmtActivity,
