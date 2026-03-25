@@ -794,11 +794,11 @@ table.data-table tr:hover td { background: #FAFAFA; }
 
     <!-- ══ EXHIBITION ══ -->
     <div id="view-exhibition" class="view">
-      <div class="card" style="margin-bottom:16px">
-        <div class="card-title">🏛️ 展会跟踪</div>
-        <div id="exhibition-stats" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px"></div>
+      <div class="card">
+        <div class="card-title">🏛️ 当前参展客户</div>
+        <p style="font-size:12px;color:var(--light);margin-bottom:14px">以下客户已标记正在参加展会。展会结束后请在客户详情里点击 × 清除标记。</p>
+        <div id="exhibition-overview"></div>
       </div>
-      <div id="exhibition-list"></div>
     </div>
 
     <!-- ══ SETTINGS ══ -->
@@ -882,12 +882,9 @@ table.data-table tr:hover td { background: #FAFAFA; }
             <option value="D">D</option>
           </select>
           <label style="font-size:12px;color:var(--light);margin-left:8px">展会</label>
-          <select class="meta-select" id="modal-exhib-select" style="font-size:12px;padding:4px 8px" onchange="updateExhibition()">
-            <option value="">未知</option>
-            <option value="attending">参展</option>
-            <option value="interested">感兴趣</option>
-            <option value="not">不参加</option>
-          </select>
+          <input class="meta-input" id="modal-exhib-input" placeholder="展会名称" style="font-size:12px;padding:4px 8px;width:140px">
+          <button class="btn btn-secondary btn-sm" onclick="markExhibition()" style="font-size:11px">🏛️ 标记</button>
+          <div id="modal-exhib-tags" style="display:flex;gap:4px;flex-wrap:wrap"></div>
           <button id="modal-pin-btn" onclick="togglePin()" class="btn btn-sm" style="margin-left:8px;font-size:12px;padding:4px 10px">📌 置顶</button>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
@@ -1746,6 +1743,7 @@ function buildCustomerRow(c) {
     ${gradeBadge(c.grade)||'<span style="min-width:28px"></span>'}
     <div class="cr-employee">${c.employee||'—'}</div>
     <div class="cr-action">${c.next_action?'→ '+c.next_action.substring(0,40)+(c.next_action.length>40?'…':''):''}</div>
+    ${c.current_exhibitions?.length ? `<span style="font-size:10px;background:#E8F5E9;color:#2E7D32;padding:1px 6px;border-radius:99px">🏛️ ${c.current_exhibitions.join(' / ')}</span>` : ''}
     ${remHtml}
     <div class="cr-last">${formatDate(last)}</div>
   `;
@@ -2851,31 +2849,91 @@ function savePayment() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  EXHIBITION
+//  EXHIBITION — 多展会系统
 // ════════════════════════════════════════════════════════════
 function renderExhibition() {
-  const we = db.customers.filter(c => c.exhibition_status);
-  const attending  = we.filter(c=>c.exhibition_status==='attending');
-  const interested = we.filter(c=>c.exhibition_status==='interested');
-  document.getElementById('exhibition-stats').innerHTML = `
-    <div style="background:#E8F5E9;border-radius:8px;padding:10px 18px;text-align:center"><div style="font-size:22px;font-weight:bold;color:#2E7D32">${attending.length}</div><div style="font-size:11px;color:#666">确认参展</div></div>
-    <div style="background:#FFF3E0;border-radius:8px;padding:10px 18px;text-align:center"><div style="font-size:22px;font-weight:bold;color:#E65100">${interested.length}</div><div style="font-size:11px;color:#666">感兴趣</div></div>
-    <div style="background:var(--bg);border-radius:8px;padding:10px 18px;text-align:center"><div style="font-size:22px;font-weight:bold;color:var(--orange)">${attending.length+interested.length}</div><div style="font-size:11px;color:#666">合计关注</div></div>
-  `;
-  const list = [...attending,...interested,...we.filter(c=>c.exhibition_status==='not')];
-  const container = document.getElementById('exhibition-list');
-  if (!list.length) { container.innerHTML = `<div class="empty-state"><div class="empty-icon">🏛️</div><p>暂无展会记录</p></div>`; return; }
-  container.innerHTML = '';
-  const card = document.createElement('div'); card.className = 'card'; card.innerHTML = '<div class="card-title">展会客户列表</div>';
-  list.forEach(c => {
-    const es = { attending:'es-attending', interested:'es-interested', not:'es-not' }[c.exhibition_status]||'';
-    const el = { attending:'✅ 参展', interested:'👀 感兴趣', not:'❌ 不参加' }[c.exhibition_status]||c.exhibition_status;
-    const div = document.createElement('div'); div.className = 'exhib-row';
-    div.innerHTML = `<span class="exhib-status ${es}">${el}</span>${heatBadge(c.heat_level)}<div style="font-weight:bold;min-width:120px">${c.name}</div><div style="color:var(--light);min-width:80px;font-size:12px">${c.country||'—'}</div><div style="color:var(--mid);font-size:12px;flex:1">${c.next_action||''}</div><div style="font-size:11px;color:var(--light)">${c.employee||''}</div><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openCustomer('${c.id}')">查看</button>`;
-    div.onclick = () => openCustomer(c.id);
-    card.appendChild(div);
+  const container = document.getElementById('exhibition-overview');
+  if (!container) return;
+  const tagged = db.customers.filter(c => (c.current_exhibitions||[]).length > 0);
+  if (!tagged.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏛️</div><p>暂无客户标记参展</p><p style="font-size:12px;color:var(--light)">在客户详情里填写展会名称并点击标记按钮</p></div>';
+    return;
+  }
+  // Group by exhibition name
+  const byExhib = {};
+  tagged.forEach(c => {
+    (c.current_exhibitions||[]).forEach(name => {
+      if (!byExhib[name]) byExhib[name] = [];
+      byExhib[name].push(c);
+    });
   });
-  container.appendChild(card);
+  container.innerHTML = Object.entries(byExhib).map(([name, custs]) => `
+    <div style="margin-bottom:16px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:#F5F5F5;padding:10px 14px;font-weight:bold;font-size:13px;display:flex;align-items:center;gap:8px">
+        🏛️ ${name}
+        <span style="font-weight:normal;font-size:11px;color:var(--light)">${custs.length} 个客户</span>
+      </div>
+      <div style="padding:8px 14px">
+        ${custs.map(c => `
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F5F5F5;cursor:pointer" onclick="openCustomer('${c.id}')">
+            <span style="font-size:13px;font-weight:bold;color:var(--orange-dark)">${c.name}</span>
+            <span style="font-size:11px;color:var(--light)">${c.country||''}</span>
+            <span style="font-size:11px;color:var(--light)">${c.employee||''}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderExhibTagsInModal(c) {
+  const el = document.getElementById('modal-exhib-tags');
+  if (!el) return;
+  const tags = (c.current_exhibitions || []);
+  if (!tags.length) { el.innerHTML = ''; return; }
+  el.innerHTML = tags.map((name, i) =>
+    `<span style="font-size:11px;background:#E8F5E9;color:#2E7D32;padding:2px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px">
+      🏛️ ${name}
+      <span onclick="clearExhibition(${i})" style="cursor:pointer;color:#999;font-size:13px;line-height:1" title="清除标记">×</span>
+    </span>`
+  ).join('');
+}
+
+function markExhibition() {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c) return;
+  const name = document.getElementById('modal-exhib-input').value.trim();
+  if (!name) { showToast('请填写展会名称'); return; }
+  c.current_exhibitions = c.current_exhibitions || [];
+  if (c.current_exhibitions.includes(name)) { showToast('已标记该展会'); return; }
+  c.current_exhibitions.push(name);
+  c.updated_at = today();
+  saveData(db);
+  document.getElementById('modal-exhib-input').value = '';
+  renderExhibTagsInModal(c);
+  showToast(`已标记：${name}`);
+}
+
+function clearExhibition(idx) {
+  if (!modalCustomerId) return;
+  const c = db.customers.find(x => x.id === modalCustomerId);
+  if (!c || !c.current_exhibitions) return;
+  const name = c.current_exhibitions[idx];
+  if (!confirm(`确定清除展会标记「${name}」？\n系统将自动记录一条互动记录。`)) return;
+  // Write interaction record
+  c.interactions = c.interactions || [];
+  c.interactions.push({
+    date: today(),
+    employee: currentUser?.displayName || currentUser?.email || '',
+    summary: `参加了展会：${name}`,
+    next_action: '',
+  });
+  c.current_exhibitions.splice(idx, 1);
+  c.updated_at = today();
+  saveData(db);
+  renderExhibTagsInModal(c);
+  renderModalTimeline();
+  showToast(`已清除展会标记，并记录互动`);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -3005,7 +3063,10 @@ function openCustomer(id) {
 
   document.getElementById('modal-heat-select').value    = c.heat_level||'cool';
   document.getElementById('modal-grade-select').value   = c.grade||'';
-  document.getElementById('modal-exhib-select').value   = c.exhibition_status||'';
+  // Render current exhibition tags
+  const exhibInput = document.getElementById('modal-exhib-input');
+  if (exhibInput) exhibInput.value = '';
+  renderExhibTagsInModal(c);
   // Set pin button state
   const pinBtn = document.getElementById('modal-pin-btn');
   if (pinBtn) {
@@ -3144,6 +3205,18 @@ function saveCustomerFields() {
   renderAll();
 }
 
+// ── Exhibition keyword detection ──
+function detectExhibitionStatus(text) {
+  const t = text.toLowerCase();
+  const attendingKW = ['参展','参加展会','会去展会','去展会','确认参展','会来展会','来展会','广交会','cantonfair','canton fair','会去','参加展','去参展'];
+  const interestedKW = ['感兴趣参展','有兴趣参展','考虑参展','可能参展','想参展','有意参展','感兴趣展会'];
+  const notKW = ['不参加','不去展会','不来展会','不参展','无法参展','不会来','不会去展会'];
+  if (notKW.some(kw => t.includes(kw))) return 'not';
+  if (interestedKW.some(kw => t.includes(kw))) return 'interested';
+  if (attendingKW.some(kw => t.includes(kw))) return 'attending';
+  return null;
+}
+
 function addInteractionRecord() {
   if (!modalCustomerId) return;
   const c = db.customers.find(x => x.id === modalCustomerId);
@@ -3166,9 +3239,9 @@ function addInteractionRecord() {
   document.getElementById('tl-add-summary').value = '';
   document.getElementById('tl-add-next').value = '';
   document.getElementById('tl-add-date').value = today();
+  showToast('跟进记录已保存');
   renderModalTimeline();
   renderAll();
-  showToast('跟进记录已保存');
 }
 
 function renderModalTimeline() {
@@ -3237,12 +3310,19 @@ function saveBulkTimeline() {
   chunks.forEach(ch => {
     if (!ch.text.trim()) return;
     c.interactions.push({ date: ch.date, employee: emp, summary: ch.text.trim(), next_action: '' });
+    // Auto-detect exhibition status
+    const exhibStatus = detectExhibitionStatus(ch.text);
+    if (exhibStatus) c.exhibition_status = exhibStatus;
   });
   c.updated_at = today();
   saveData(db);
+  // Refresh exhibition select
+  const exhibEl = document.getElementById('modal-exhib-select');
+  if (exhibEl) exhibEl.value = c.exhibition_status || '';
   document.getElementById('timeline-bulk-area').style.display = 'none';
   document.getElementById('timeline-bulk-input').value = '';
   renderModalTimeline();
+  renderAll();
   showToast(`已导入 ${chunks.length} 条历史记录`);
 }
 
@@ -3430,12 +3510,8 @@ function updateGrade() {
   c.grade = document.getElementById('modal-grade-select').value;
   c.updated_at = today(); saveData(db); renderAll(); showToast('评级已更新');
 }
-function updateExhibition() {
-  if (!modalCustomerId) return;
-  const c = db.customers.find(x=>x.id===modalCustomerId); if (!c) return;
-  c.exhibition_status = document.getElementById('modal-exhib-select').value;
-  c.updated_at = today(); saveData(db); renderExhibition(); showToast('展会状态已更新');
-}
+function updateExhibition() { /* replaced by markExhibition / clearExhibition */ }
+
 function updateReminder() {
   if (!modalCustomerId) return;
   const c = db.customers.find(x=>x.id===modalCustomerId); if (!c) return;
@@ -4523,6 +4599,7 @@ Object.assign(window, {
   switchView, switchDashTab, switchReminderTab,
   openCustomer, closeModal, saveCustomerFields,
   updateHeat, updateGrade, updateExhibition, updateReminder, togglePin,
+  markExhibition, clearExhibition,
   addManualNote, deleteCurrentCustomer,
   addInteractionRecord, renderModalTimeline, switchModalTab,
   saveBulkTimeline, addSampleRecord, updateSampleStatus, deleteSample,
