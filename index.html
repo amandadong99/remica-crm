@@ -892,9 +892,8 @@ table.data-table tr:hover td { background: #FAFAFA; }
           <button id="modal-pin-btn" onclick="togglePin()" class="btn btn-sm" style="margin-left:8px;font-size:12px;padding:4px 10px">📌 置顶</button>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
-          <label style="font-size:12px;color:var(--light)">跟进日期</label>
-          <input type="date" class="meta-input" id="modal-reminder-date" style="font-size:12px;padding:4px 8px">
-          <label style="font-size:12px;color:var(--light);margin-left:8px">周期</label>
+          <input type="date" id="modal-reminder-date" style="display:none">
+          <label style="font-size:12px;color:var(--light)">跟进周期</label>
           <input type="number" class="meta-input" id="modal-follow-cycle" min="1" max="365" placeholder="天" style="font-size:12px;padding:4px 8px;width:68px">
           <span style="font-size:11px;color:var(--light)">天/次</span>
           <button class="btn btn-secondary btn-sm" onclick="updateReminder()">更新</button>
@@ -3538,11 +3537,19 @@ function updateExhibition() { /* replaced by markExhibition / clearExhibition */
 function updateReminder() {
   if (!modalCustomerId) return;
   const c = db.customers.find(x=>x.id===modalCustomerId); if (!c) return;
-  c.reminder_date = document.getElementById('modal-reminder-date').value;
   const v = parseInt(document.getElementById('modal-follow-cycle').value,10);
   c.follow_cycle = v>0 ? v : null;
+  if (c.follow_cycle) {
+    const interactions = c.interactions || [];
+    const lastDate = interactions.length > 0
+      ? interactions.slice().sort((a,b) => b.date.localeCompare(a.date))[0].date
+      : today();
+    const base = new Date(lastDate);
+    base.setDate(base.getDate() + c.follow_cycle);
+    c.reminder_date = base.toISOString().split('T')[0];
+  }
   c.updated_at = today(); saveData(db); renderReminders(); updateReminderBadge();
-  showToast('跟进日期已更新'+(c.follow_cycle?`，周期${c.follow_cycle}天`:''));
+  showToast('跟进周期已更新'+(c.follow_cycle?`，下次跟进：${c.reminder_date}`:''));
 }
 function addManualNote() {
   if (!modalCustomerId) return;
